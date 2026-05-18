@@ -1,0 +1,34 @@
+[Unit]
+Description=FreeCaption — Whisper transcription API
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=freecaption
+Group=freecaption
+WorkingDirectory=/opt/freecaption/backend
+EnvironmentFile=/opt/freecaption/.env
+ExecStart=/opt/freecaption/.venv/bin/python /opt/freecaption/backend/main.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Resource limits (CPU instance icin)
+LimitNOFILE=65536
+MemoryMax=7G
+
+# Guvenlik (read-only, /tmp izolasyon)
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/freecaption
+
+# Logs -> journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=freecaption
+
+[Install]
+WantedBy=multi-user.target

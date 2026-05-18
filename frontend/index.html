@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FreeCaption — Türkçe & İngilizce Otomatik Altyazı</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🎬%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: { 950: '#070710', 900: '#0c0c1a', 800: '#13132a', 700: '#1c1c3a' },
+          accent: { from: '#7c3aed', to: '#06b6d4' },
+        },
+        fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      },
+    },
+  };
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="min-h-screen bg-ink-950 text-slate-100 font-sans antialiased overflow-x-hidden">
+
+<div class="aurora"></div>
+
+<main class="relative max-w-5xl mx-auto px-6 pt-10 pb-24">
+
+  <header class="flex items-center justify-between mb-10">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-accent-from to-accent-to grid place-items-center shadow-lg shadow-violet-500/30">
+        <span class="text-xl">🎬</span>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">FreeCaption</h1>
+        <p class="text-xs text-slate-400">Yerel · Sınırsız · TR + EN</p>
+      </div>
+    </div>
+    <div id="health" class="text-xs text-slate-400 flex items-center gap-2">
+      <span class="status-dot bg-slate-500"></span><span>Bağlanılıyor…</span>
+    </div>
+  </header>
+
+  <section id="hero" class="mb-8">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+      Sesi <span class="bg-gradient-to-r from-accent-from to-accent-to bg-clip-text text-transparent">kelime kelime</span> altyazıya çevir.
+    </h2>
+    <p class="text-slate-400 mt-3 max-w-2xl">
+      Whisper large-v3 + WhisperX hizalama. Tamamen yerel çalışır, dosya boyutu limiti yok. Çıktı: <code class="text-violet-300">.srt</code> + <code class="text-violet-300">.txt</code> — Premiere Pro'ya doğrudan import et.
+    </p>
+  </section>
+
+  <section id="dropzone" class="dropzone group">
+    <input type="file" id="fileInput" class="hidden" accept="video/*,audio/*" multiple />
+    <div class="dz-inner">
+      <div class="text-5xl mb-3 transition-transform group-hover:-translate-y-1">⬆️</div>
+      <p class="text-lg font-semibold">Video veya ses dosyasını sürükle</p>
+      <p class="text-sm text-slate-400 mt-1">ya da <button id="browseBtn" class="text-violet-300 underline underline-offset-2 hover:text-violet-200">dosya seç</button></p>
+      <p class="text-xs text-slate-500 mt-3">mp4 · mov · mkv · mp3 · wav · m4a · …</p>
+    </div>
+  </section>
+
+  <section class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <label class="opt">
+      <span class="opt-label">Dil</span>
+      <select id="language" class="opt-input">
+        <option value="auto">Otomatik tespit</option>
+        <option value="tr">Türkçe</option>
+        <option value="en">İngilizce</option>
+      </select>
+    </label>
+    <div class="opt opt-info">
+      <span class="opt-label">Model</span>
+      <span class="opt-value">Whisper large-v3</span>
+    </div>
+    <div class="opt opt-info">
+      <span class="opt-label">Hizalama</span>
+      <span class="opt-value">WhisperX (word-level)</span>
+    </div>
+  </section>
+
+  <section id="jobsSection" class="mt-10 hidden">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-lg font-semibold">İşler</h3>
+      <button id="openOutput" class="text-xs px-3 py-1.5 rounded-lg bg-ink-800 hover:bg-ink-700 border border-white/5 transition">
+        📂 Çıktı klasörünü aç
+      </button>
+    </div>
+    <div id="jobs" class="space-y-3"></div>
+  </section>
+
+  <footer class="mt-16 text-center text-xs text-slate-600">
+    FreeCaption · Tamamen yerel, sınırsız, Türkçe & İngilizce
+  </footer>
+
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>

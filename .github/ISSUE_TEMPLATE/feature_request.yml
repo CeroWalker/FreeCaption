@@ -1,0 +1,92 @@
+name: ✨ Özellik Önerisi (Feature Request)
+description: FreeCaption'a yeni bir özellik veya geliştirme öner
+title: "[Özellik]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Önerin için teşekkürler! 💡 Daha hızlı değerlendirme için lütfen şu bilgileri ver.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hangi Problemi Çözüyor?
+      description: Şu an hangi ihtiyaç karşılanmıyor?
+      placeholder: |
+        Reels editörü olarak her seferinde Kısa 22 + Karaoke seçiyorum.
+        Plugin açıldığında varsayılan bu olsaydı zaman kazanırdım.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Çözüm Önerisi
+      description: Senin önerin nasıl çalışmalı?
+      placeholder: |
+        Tab 1'de "Varsayılan profil" dropdown'u eklensin:
+        - YouTube (Orta 28, dil otomatik)
+        - Reels/Shorts (Kısa 22, Karaoke)
+        - Film (Geniş 35)
+        Kullanıcı seçer, plugin localStorage'a kaydeder.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Değerlendirdiğin Alternatifler
+      description: Başka hangi yaklaşımları düşündün, neden bunu tercih ediyorsun?
+      placeholder: |
+        Alternatif 1: localStorage'da son seçimleri hatırla (otomatik)
+        - Sorun: yeni proje farklı, manual değişiklik istiyor
+        Alternatif 2: profile dosyaları (.fcprofile)
+        - Sorun: aşırı karmaşık küçük bir tercih için
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Hangi Alanı Etkiliyor?
+      multiple: true
+      options:
+        - Plugin UI (CEP panel)
+        - Tab 1 — Oluştur
+        - Tab 2 — Stil Ver
+        - Backend (FastAPI + Whisper)
+        - Deploy / Install scripti
+        - Dokümantasyon
+        - Diğer
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Etki / Kim Faydalanır?
+      options:
+        - Tüm kullanıcılar
+        - Sadece VDS modu
+        - Sadece lokal mod
+        - Reels/TikTok editörleri
+        - YouTube editörleri
+        - Film/dizi altyazısı
+        - Power user / geliştirici
+        - Diğer
+    validations:
+      required: true
+
+  - type: textarea
+    id: mockup
+    attributes:
+      label: Mockup / Ekran Görüntüsü
+      description: Görsel önerin varsa ekle. Word/Excel taslakları, başka apptan ekran görüntüsü vs.
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Katkı Sağlayabilir misin?
+      options:
+        - label: Bu özelliği ben PR olarak gönderebilirim (CONTRIBUTING.md'yi okudum)
+        - label: Test edebilirim, kod yazamam
+        - label: Sadece öneri, geliştirme topluluğa kalsın

@@ -1,0 +1,42 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# AltyaziAI çıktıları (kişisel)
+output/*.srt
+output/*.txt
+output/*.log
+output/*.log.err
+output/.gitkeep
+!output/.gitkeep
+
+# AltyaziAI cache (büyük, indirilebilir)
+backend/.temp/
+backend/.models/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# CEP plugin geliştirme
+cep-plugin/node_modules/
+cep-plugin/.debug.bak
+
+# Sohbet/development notları (özel)
+# PROJE_DURUM.md  ← public yapmak istersen yorumu kaldır
+
+# Release artifacts
+dist/
+

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionManifest
+    Version="11.0"
+    ExtensionBundleId="com.emrekazak.freecaption"
+    ExtensionBundleVersion="1.0.0"
+    ExtensionBundleName="FreeCaption"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+    <ExtensionList>
+        <Extension Id="com.emrekazak.freecaption.panel" Version="1.0.0" />
+    </ExtensionList>
+
+    <ExecutionEnvironment>
+        <HostList>
+            <Host Name="PPRO" Version="23.0" />
+            <Host Name="PPRO" Version="24.0" />
+            <Host Name="PPRO" Version="25.0" />
+            <Host Name="PPRO" Version="26.0" />
+            <Host Name="PPRO" Version="27.0" />
+        </HostList>
+
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="11.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+
+    <DispatchInfoList>
+        <Extension Id="com.emrekazak.freecaption.panel">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                    <ScriptPath>./jsx/main.jsx</ScriptPath>
+                    <CEFCommandLine>
+                        <Parameter>--enable-nodejs</Parameter>
+                        <Parameter>--mixed-context</Parameter>
+                        <Parameter>--allow-file-access</Parameter>
+                        <Parameter>--allow-file-access-from-files</Parameter>
+                    </CEFCommandLine>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>FreeCaption</Menu>
+                    <Geometry>
+                        <Size>
+                            <Width>360</Width>
+                            <Height>520</Height>
+                        </Size>
+                        <MinSize>
+                            <Width>320</Width>
+                            <Height>420</Height>
+                        </MinSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>

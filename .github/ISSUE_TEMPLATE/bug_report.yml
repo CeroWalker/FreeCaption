@@ -1,0 +1,111 @@
+name: 🐛 Hata Bildirimi (Bug Report)
+description: FreeCaption'da karşılaştığın bir hatayı bildir
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Teşekkürler! 🙏 Hata bildirimini incelemeden önce lütfen şu kontrolleri yap:
+        - [Mevcut issue'lara baktın mı?](https://github.com/ScamEmre/FreeCaption/issues?q=is%3Aissue)
+        - [README](https://github.com/ScamEmre/FreeCaption/blob/main/README.md) ve [VDS_DEPLOYMENT](https://github.com/ScamEmre/FreeCaption/blob/main/01_Rehberler_ve_Raporlar/VDS_DEPLOYMENT.md) okudun mu?
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Hatanın Açıklaması
+      description: Ne oldu? Net ve kısa anlat.
+      placeholder: "Altyazı Üret butonuna basınca panel donuyor..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Adım Adım Nasıl Tetiklenir
+      description: Hatayı tekrarlamak için izlediğin adımlar
+      placeholder: |
+        1. Premiere'de FreeCaption panel'i aç
+        2. Timeline'da 30 saniyelik bir klibi seç
+        3. Altyazı Stili "Kısa 22" seç
+        4. Altyazı Üret tuşuna bas
+        5. Panel "Model yukleniyor" diyor ve takılıyor
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Beklenen Davranış
+      description: Sence ne olmalıydı?
+      placeholder: "Caption track timeline'a düşmeli, ~30 sn içinde"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Çalışma Modu
+      description: Plugin sunucuya nasıl bağlı?
+      options:
+        - Lokal (kendi bilgisayarımda Python sunucusu)
+        - VDS (uzak sunucu)
+        - Bilmiyorum
+    validations:
+      required: true
+
+  - type: input
+    id: premiere-version
+    attributes:
+      label: Premiere Pro Sürümü
+      description: "Help → About Adobe Premiere Pro"
+      placeholder: "örn: 24.4.1"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: İşletim Sistemi
+      placeholder: "Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU (varsa)
+      placeholder: "NVIDIA RTX 5060 / AMD / Intel HD / Yok"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Loglar
+      description: |
+        - Lokal: `backend/output/error.log` veya `start.bat` terminalindeki son çıktı
+        - VDS: SSH/RDP ile `Get-Content C:\FreeCaption\logs\backend-stderr.log -Tail 50`
+        - Plugin: Chrome'dan `http://localhost:8088` → FreeCaption → DevTools → Console
+      render: shell
+      placeholder: |
+        [JOB ERROR] ...
+        Traceback (most recent call last):
+        ...
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Ekran Görüntüsü / Video
+      description: Sürükle bırak veya yapıştır. Panel + timeline beraber gözüksün ideal.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Doğrulamalar
+      options:
+        - label: Premiere'i kapat-aç denedim, hata devam ediyor
+          required: true
+        - label: Plugin'i yeniden yükledim (`cep_kur.bat` veya auto-update butonu)
+          required: false
+        - label: VDS modu kullanıyorsam, sunucudaki servis "Running" durumunda (`Get-Service FreeCaption`)
+          required: false

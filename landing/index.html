@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FreeCaption — Premiere Pro için Türkçe Whisper Altyazı</title>
+
+<!-- SEO -->
+<meta name="description" content="Adobe Premiere Pro için açık kaynak, yerel, sınırsız Türkçe altyazı eklentisi. Whisper AI + GPU ile saniyeler içinde otomatik transkript. Tamamen ücretsiz." />
+<meta name="keywords" content="Premiere Pro, Türkçe altyazı, Whisper, otomatik altyazı, CEP plugin, açık kaynak, FreeCaption" />
+<meta name="author" content="Emre Kazak" />
+<meta name="theme-color" content="#06b6d4" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://emrekazak.com/freecaption" />
+<meta property="og:title" content="FreeCaption — Ücretsiz Türkçe Altyazı Eklentisi" />
+<meta property="og:description" content="Premiere Pro için açık kaynak, yerel, sınırsız Türkçe altyazı. Whisper + GPU, saniyeler içinde." />
+<meta property="og:image" content="https://emrekazak.com/freecaption/freecaption-og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="FreeCaption — Türkçe altyazı, artık ücretsiz" />
+<meta property="og:locale" content="tr_TR" />
+<meta property="og:site_name" content="emrekazak.com" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="FreeCaption — Ücretsiz Türkçe Altyazı Eklentisi" />
+<meta name="twitter:description" content="Premiere Pro için açık kaynak, yerel, sınırsız Türkçe altyazı. Whisper + GPU." />
+<meta name="twitter:image" content="https://emrekazak.com/freecaption/freecaption-og.png" />
+
+<!-- Favicon (inline SVG) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23000'/><text x='50' y='65' font-family='system-ui' font-weight='800' font-size='44' fill='%2306b6d4' text-anchor='middle'>FC</text></svg>" />
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #000000;
+  --bg-elev: #0a0a0a;
+  --bg-elev-2: #141418;
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(6,182,212,0.4);
+  --text: #f5f5f7;
+  --text-dim: #a8a8b0;
+  --text-faint: #6a6a73;
+  --accent: #06b6d4;
+  --accent-bright: #22d3ee;
+  --accent-soft: rgba(6,182,212,0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* === Ambient background blobs (subtle, performant) === */
+.bg-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+  animation: drift 24s ease-in-out infinite alternate;
+}
+.bg-blob.b1 { background: #06b6d4; width: 480px; height: 480px; top: -120px; left: -100px; }
+.bg-blob.b2 { background: #0e7490; width: 520px; height: 520px; bottom: -150px; right: -150px; animation-delay: -8s; }
+.bg-blob.b3 { background: #155e75; width: 380px; height: 380px; top: 40%; left: 50%; transform: translateX(-50%); animation-delay: -16s; opacity: 0.1; }
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(40px, 60px) scale(1.1); }
+}
+.bg-blob.b3 { animation: drift-center 28s ease-in-out infinite alternate; }
+@keyframes drift-center {
+  from { transform: translate(-50%, 0) scale(1); }
+  to   { transform: translate(-30%, -40px) scale(1.05); }
+}
+
+/* === Container === */
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* === Topbar === */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+}
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-elev);
+  border: 1px solid rgba(6,182,212,0.35);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  box-shadow: 0 0 20px rgba(6,182,212,0.15);
+}
+.brand-text { letter-spacing: -0.4px; }
+.brand-text span { color: var(--text-dim); font-weight: 500; font-size: 12px; margin-left: 4px; }
+.nav { display: flex; gap: 28px; align-items: center; }
+.nav a {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav a:hover { color: var(--text); }
+.nav a.cta {
+  background: var(--accent);
+  color: #001318;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px -4px rgba(6,182,212,0.5);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav a.cta:hover {
+  background: var(--accent-bright);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -4px rgba(6,182,212,0.7);
+}
+
+@media (max-width: 640px) {
+  .nav a:not(.cta) { display: none; }
+}
+
+/* === Hero === */
+.hero {
+  padding: 100px 0 80px;
+  text-align: center;
+  position: relative;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(6,182,212,0.25);
+  color: var(--accent);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 28px;
+}
+.hero-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.hero h1 {
+  font-size: clamp(40px, 6vw, 68px);
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1.05;
+  margin-bottom: 24px;
+  background: linear-gradient(180deg, #ffffff 0%, #b8b8c0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero h1 .accent {
+  background: linear-gradient(180deg, var(--accent-bright) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p.sub {
+  font-size: clamp(16px, 2vw, 20px);
+  color: var(--text-dim);
+  max-width: 680px;
+  margin: 0 auto 40px;
+  line-height: 1.5;
+}
+.hero-buttons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-radius: 11px;
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #001318;
+  box-shadow: 0 8px 28px -8px rgba(6,182,212,0.6);
+}
+.btn-primary:hover {
+  background: var(--accent-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px -8px rgba(6,182,212,0.8);
+}
+.btn-ghost {
+  background: var(--bg-elev);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-ghost:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-elev-2);
+}
+
+.hero-meta {
+  margin-top: 56px;
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+.hero-meta div { display: flex; align-items: center; gap: 8px; }
+.hero-meta strong { color: var(--text); font-weight: 600; }
+
+/* === Sections === */
+section.block {
+  padding: 80px 0;
+}
+.section-title {
+  text-align: center;
+  margin-bottom: 60px;
+}
+.section-eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 12px;
+}
+.section-title h2 {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  line-height: 1.15;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.section-title p {
+  margin-top: 16px;
+  color: var(--text-dim);
+  font-size: 17px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* === Feature Grid === */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.feature {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+.feature::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(6,182,212,0.06), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.feature:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+.feature:hover::before { opacity: 1; }
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--accent-soft);
+  border: 1px solid rgba(6,182,212,0.25);
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  color: var(--accent);
+}
+.feature h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.2px;
+}
+.feature p {
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+/* === Comparison Table === */
+.compare {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.compare table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.compare th, .compare td {
+  padding: 16px 20px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.compare th {
+  background: var(--bg-elev-2);
+  font-weight: 700;
+  color: var(--text);
+  font-size: 13px;
+}
+.compare th:first-child, .compare td:first-child {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+.compare td.fc { color: var(--accent); font-weight: 600; }
+.compare tr:last-child td { border-bottom: 0; }
+.compare .check { color: #22c55e; font-weight: 700; }
+.compare .cross { color: #ef4444; }
+
+/* === How it Works === */
+.flow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  position: relative;
+}
+.flow-step {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  position: relative;
+}
+.flow-step-num {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  color: #001318;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  font-size: 15px;
+  box-shadow: 0 4px 16px -4px rgba(6,182,212,0.5);
+}
+.flow-step h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: -0.2px;
+}
+.flow-step p { color: var(--text-dim); font-size: 13.5px; line-height: 1.5; }
+
+/* === Tech Stack === */
+.tech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.tech-chip {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+.tech-chip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* === CTA Big === */
+.cta-big {
+  background: linear-gradient(135deg, var(--bg-elev) 0%, rgba(6,182,212,0.05) 100%);
+  border: 1px solid rgba(6,182,212,0.2);
+  border-radius: 24px;
+  padding: 60px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-big::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  background: var(--accent);
+  filter: blur(120px);
+  opacity: 0.2;
+}
+.cta-big h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  margin-bottom: 14px;
+  letter-spacing: -0.8px;
+  position: relative;
+  z-index: 1;
+}
+.cta-big p { color: var(--text-dim); font-size: 17px; margin-bottom: 28px; position: relative; z-index: 1; }
+.cta-big .btn { position: relative; z-index: 1; }
+
+/* === Footer === */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  margin-top: 40px;
+}
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.foot a { color: var(--text-dim); transition: color 0.2s; }
+.foot a:hover { color: var(--accent); }
+.foot-links { display: flex; gap: 24px; flex-wrap: wrap; }
+
+@media (max-width: 768px) {
+  .hero { padding: 60px 0 50px; }
+  section.block { padding: 56px 0; }
+  .cta-big { padding: 40px 24px; }
+  .foot { justify-content: center; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-blob b1"></div>
+<div class="bg-blob b2"></div>
+<div class="bg-blob b3"></div>
+
+<header>
+  <div class="container topbar">
+    <a href="#" class="brand">
+      <span class="brand-logo">FC</span>
+      <span class="brand-text">FreeCaption<span>açık kaynak</span></span>
+    </a>
+    <nav class="nav">
+      <a href="#features">Özellikler</a>
+      <a href="#how">Nasıl Çalışır</a>
+      <a href="#compare">Karşılaştırma</a>
+      <a href="https://github.com/ScamEmre/FreeCaption" class="cta" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">v1.0 yayında · MIT lisansı · ücretsiz</div>
+    <h1>Premiere Pro için<br/><span class="accent">Türkçe Whisper</span> altyazı</h1>
+    <p class="sub">
+      Açık kaynak. Yerel işleme. Sınırsız kullanım. Adobe'nin desteklemediği Türkçeye saniyeler içinde profesyonel kalitede altyazı.
+    </p>
+    <div class="hero-buttons">
+      <a href="https://github.com/ScamEmre/FreeCaption" class="btn btn-primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+        </svg>
+        GitHub'da Aç
+      </a>
+      <a href="#how" class="btn btn-ghost">
+        Nasıl Çalışır
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </a>
+    </div>
+    <div class="hero-meta">
+      <div>🇹🇷 <strong>Türkçe</strong> · 99 dil desteği</div>
+      <div>⚡ <strong>GPU hızlandırma</strong> · CUDA RTX</div>
+      <div>🔒 <strong>Tamamen yerel</strong> · cloud yok</div>
+      <div>♾️ <strong>Sınırsız</strong> · API kotası yok</div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="block">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-eyebrow">Özellikler</div>
+      <h2>Profesyonel video editörler için tasarlandı</h2>
+      <p>OpenAI Whisper'ın gücü, Adobe Premiere'ın iş akışı, ücretsiz ve sınırsız.</p>
+    </div>
+    <div class="features">
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <h3>Whisper Large-v3 + WhisperX</h3>
+        <p>OpenAI'nin en güçlü ses modeli, word-level forced alignment ile ±20ms hassasiyet. Karaoke senkronu kayma yapmaz.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+        </div>
+        <h3>GPU Hızlandırma</h3>
+        <p>NVIDIA RTX 50/40/30 ile saniyeler içinde transkript. 1 dakikalık video → 6 saniye işlem (RTX 5060).</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h3>Tamamen Yerel</h3>
+        <p>Videolarınız hiçbir buluta yüklenmez. Tüm işlem sizin bilgisayarınızda olur. Gizlilik garantili.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h3>Sınırsız Kullanım</h3>
+        <p>Aylık kota, dosya boyutu limiti, abonelik ücreti yok. Bir kez kurun, sınırsız kullanın.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+          </svg>
+        </div>
+        <h3>Premiere Entegrasyonu</h3>
+        <p>CEP eklentisi olarak Premiere'in içinde çalışır. Caption track otomatik oluşturulur, SRT timeline'a düşer.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>
+          </svg>
+        </div>
+        <h3>Akıllı Satır Bölme</h3>
+        <p>18/22/28/35 karakter/satır seçenekleri. Reels'ten YouTube'a her platform için doğru uzunluk.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </div>
+        <h3>Stil Sistemi</h3>
+        <p>Karaoke, Fade, Pop, Type, Bounce animasyonları. Font, renk, stroke, shadow tam kontrol. PNG sequence export.</p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </div>
+        <h3>VDS Sunucu Modu</h3>
+        <p>Ekip için merkezi sunucu kurulumu. PowerShell ile tek tuşla Windows Server'a deploy. API Key ile güvenli erişim.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="block" style="background: var(--bg-elev);">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-eyebrow">Nasıl Çalışır</div>
+      <h2>3 dakikalık kurulum, sonsuz altyazı</h2>
+      <p>Bilgisayara bir kez kur, Premiere'in içinden tek tuşla kullan.</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-step-num">1</div>
+        <h4>Kur</h4>
+        <p><code>install.bat</code> Python ortamı kurar, <code>cep_kur.bat</code> Premiere'e bağlar.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">2</div>
+        <h4>Klip Seç</h4>
+        <p>Timeline'da bir video/ses klibine tıkla. Panel otomatik tanır.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">3</div>
+        <h4>Üret</h4>
+        <p>Karakter sınırı + dil seç, <strong>Altyazı Üret</strong> tuşuna bas.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-step-num">4</div>
+        <h4>Timeline'a Düşsün</h4>
+        <p>SRT otomatik oluşturulur, caption track olarak timeline'a yerleştirilir.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="compare" class="block">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-eyebrow">Karşılaştırma</div>
+      <h2>Neden FreeCaption?</h2>
+      <p>Ticari çözümlerle özellik kıyaslaması.</p>
+    </div>
+    <div class="compare">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th class="fc" style="color: var(--accent);">FreeCaption</th>
+            <th>Adobe yerleşik</th>
+            <th>Ticari eklentiler<br/><span style="font-size:11px;opacity:0.7">(Kaps, Subs vb.)</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Türkçe destek</td>
+            <td class="check">✓</td>
+            <td class="cross">✗</td>
+            <td class="check">✓</td>
+          </tr>
+          <tr>
+            <td>Açık kaynak</td>
+            <td class="check">✓</td>
+            <td class="cross">✗</td>
+            <td class="cross">✗</td>
+          </tr>
+          <tr>
+            <td>Yerel işleme (gizlilik)</td>
+            <td class="check">✓</td>
+            <td class="cross">✗ cloud</td>
+            <td class="cross">✗ cloud</td>
+          </tr>
+          <tr>
+            <td>Ücret</td>
+            <td class="fc">Ücretsiz</td>
+            <td>Creative Cloud</td>
+            <td>Aylık abonelik</td>
+          </tr>
+          <tr>
+            <td>Dosya boyutu limiti</td>
+            <td class="fc">Sınırsız</td>
+            <td>Var</td>
+            <td>Var</td>
+          </tr>
+          <tr>
+            <td>Word-level alignment</td>
+            <td class="check">✓ WhisperX</td>
+            <td class="cross">✗</td>
+            <td>Kısmen</td>
+          </tr>
+          <tr>
+            <td>Aylık kullanım limiti</td>
+            <td class="fc">Sınırsız</td>
+            <td>Sınırlı</td>
+            <td>Kotalı</td>
+          </tr>
+          <tr>
+            <td>GPU hızlandırma</td>
+            <td class="check">✓ CUDA RTX</td>
+            <td class="cross">N/A</td>
+            <td class="cross">N/A</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section class="block" style="background: var(--bg-elev);">
+  <div class="container">
+    <div class="section-title">
+      <div class="section-eyebrow">Teknoloji</div>
+      <h2>Modern, açık ve sağlam</h2>
+      <p>Endüstri standardı kütüphanelerle inşa edildi.</p>
+    </div>
+    <div class="tech">
+      <span class="tech-chip">OpenAI Whisper large-v3</span>
+      <span class="tech-chip">WhisperX</span>
+      <span class="tech-chip">faster-whisper</span>
+      <span class="tech-chip">CTranslate2</span>
+      <span class="tech-chip">PyTorch 2.7 CUDA 12.8</span>
+      <span class="tech-chip">FastAPI + Uvicorn</span>
+      <span class="tech-chip">Adobe CEP</span>
+      <span class="tech-chip">ExtendScript</span>
+      <span class="tech-chip">FFmpeg</span>
+      <span class="tech-chip">Python 3.12</span>
+      <span class="tech-chip">Caddy</span>
+      <span class="tech-chip">NSSM</span>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="block">
+  <div class="container">
+    <div class="cta-big">
+      <h2>Şimdi Başla</h2>
+      <p>Tek bir kurulum, sonsuz altyazı. Türkçeye ve cebine zararsız.</p>
+      <a href="https://github.com/ScamEmre/FreeCaption" class="btn btn-primary" target="_blank" rel="noopener">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+        </svg>
+        GitHub'dan İndir
+      </a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container foot">
+    <div>© 2026 FreeCaption · MIT Lisansı · <a href="https://emrekazak.com" target="_blank" rel="noopener">emrekazak.com</a></div>
+    <div class="foot-links">
+      <a href="https://github.com/ScamEmre/FreeCaption" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/ScamEmre/FreeCaption/blob/main/README.md" target="_blank" rel="noopener">Dokümantasyon</a>
+      <a href="https://github.com/ScamEmre/FreeCaption/issues" target="_blank" rel="noopener">Sorun Bildir</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

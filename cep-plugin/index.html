@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <title>FreeCaption</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Onboarding -->
+  <div id="onboarding" class="onboarding hidden">
+    <div class="onboarding-card">
+      <div class="ob-logo">FC</div>
+      <h2 class="ob-title">FreeCaption'a Hoş Geldin</h2>
+      <p class="ob-sub">3 adımda kullanıma hazır</p>
+
+      <div class="ob-steps">
+        <div class="ob-step" id="obStep1">
+          <div class="ob-step-num">1</div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Python sunucusunu başlat</div>
+            <div class="ob-step-desc">Bilgisayar açılışında otomatik başlasın: <code>autostart_kur.bat</code>. Veya manuel: <code>start_hidden.vbs</code>.</div>
+            <div class="ob-step-status" id="obStep1Status">Kontrol ediliyor…</div>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-step-num">2</div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Timeline'da klip seç</div>
+            <div class="ob-step-desc">Altyazısını üreteceğin video/ses klibine tıkla.</div>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-step-num">3</div>
+          <div class="ob-step-body">
+            <div class="ob-step-title">Altyazı Üret tuşuna bas</div>
+            <div class="ob-step-desc">Stil ve konumu seç. Caption track otomatik oluşur.</div>
+          </div>
+        </div>
+      </div>
+
+      <button id="obClose" class="ob-cta">Anladım, başlayalım</button>
+    </div>
+  </div>
+
+  <!-- Ana Panel -->
+  <div class="app">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">FC</div>
+        <div class="brand-text">
+          <div class="brand-title">FreeCaption</div>
+          <div class="brand-sub">v1.0 · Açık Kaynak</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="updateBtn" class="icon-btn" title="Eklentiyi GitHub'dan güncelle">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+        <button id="settingsBtn" class="icon-btn" title="Sunucu ayarları (URL + API Key)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button id="helpBtn" class="icon-btn" title="Yardım">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </button>
+        <div id="health" class="health">
+          <span class="dot"></span><span id="healthText">…</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Tab Bar -->
+    <nav class="tab-bar">
+      <button class="tab-btn is-active" data-tab="create">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Oluştur
+      </button>
+      <button class="tab-btn" data-tab="style">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5"/>
+          <circle cx="17.5" cy="10.5" r=".5"/>
+          <circle cx="8.5" cy="7.5" r=".5"/>
+          <circle cx="6.5" cy="12.5" r=".5"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+        </svg>
+        Stil Ver
+      </button>
+    </nav>
+
+    <!-- TAB 1: OLUŞTUR -->
+    <div class="tab-panel is-active" id="tab-create">
+
+    <!-- Sunucu kontrol -->
+    <section class="card server-card">
+      <div class="server-row">
+        <div class="server-info">
+          <div class="server-label">PYTHON SUNUCU</div>
+          <div id="serverStatus" class="server-status">Kontrol ediliyor…</div>
+        </div>
+        <div class="server-actions">
+          <button id="srvStartBtn" class="btn-mini" title="Sunucuyu başlat (start_hidden.vbs)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button id="srvPurgeBtn" class="btn-mini" title="RAM temizle (Whisper'ı unload et)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+            </svg>
+          </button>
+          <button id="srvStopBtn" class="btn-mini" title="Sunucuyu kapat">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bilgi kartı -->
+    <section class="card sequence-card">
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-label">Sekans</div>
+          <div id="seqName" class="info-value">—</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-label">Seçim</div>
+          <div id="selInfo" class="info-value">—</div>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button id="refreshBtn" class="btn-ghost">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Yenile
+        </button>
+        <button id="clearCaptionBtn" class="btn-ghost">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+          </svg>
+          C1 Temizle
+        </button>
+      </div>
+    </section>
+
+    <!-- Ayarlar -->
+    <section class="card">
+      <div class="field">
+        <label class="field-label">Konuşma Dili</label>
+        <select id="language">
+          <option value="auto" selected>🌐 Otomatik tespit</option>
+          <optgroup label="Sık kullanılan">
+            <option value="tr">Türkçe</option>
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="it">Italiano</option>
+            <option value="ru">Русский</option>
+            <option value="ar">العربية</option>
+            <option value="zh">中文</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+            <option value="pt">Português</option>
+          </optgroup>
+          <optgroup label="Diğer diller">
+            <option value="af">Afrikaans</option>
+            <option value="am">አማርኛ (Amharic)</option>
+            <option value="as">অসমীয়া (Assamese)</option>
+            <option value="az">Azərbaycanca</option>
+            <option value="ba">Башҡортса (Bashkir)</option>
+            <option value="be">Беларуская</option>
+            <option value="bg">Български</option>
+            <option value="bn">বাংলা (Bengali)</option>
+            <option value="bo">བོད་སྐད་ (Tibetan)</option>
+            <option value="br">Brezhoneg</option>
+            <option value="bs">Bosanski</option>
+            <option value="ca">Català</option>
+            <option value="cs">Čeština</option>
+            <option value="cy">Cymraeg</option>
+            <option value="da">Dansk</option>
+            <option value="el">Ελληνικά</option>
+            <option value="et">Eesti</option>
+            <option value="eu">Euskara</option>
+            <option value="fa">فارسی</option>
+            <option value="fi">Suomi</option>
+            <option value="fo">Føroyskt</option>
+            <option value="gl">Galego</option>
+            <option value="gu">ગુજરાતી (Gujarati)</option>
+            <option value="ha">Hausa</option>
+            <option value="haw">ʻŌlelo Hawaiʻi</option>
+            <option value="he">עברית</option>
+            <option value="hi">हिन्दी</option>
+            <option value="hr">Hrvatski</option>
+            <option value="ht">Kreyòl ayisyen</option>
+            <option value="hu">Magyar</option>
+            <option value="hy">Հայերեն</option>
+            <option value="id">Bahasa Indonesia</option>
+            <option value="is">Íslenska</option>
+            <option value="jw">Basa Jawa</option>
+            <option value="ka">ქართული</option>
+            <option value="kk">Қазақша</option>
+            <option value="km">ខ្មែរ (Khmer)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada)</option>
+            <option value="la">Latina</option>
+            <option value="lb">Lëtzebuergesch</option>
+            <option value="ln">Lingála</option>
+            <option value="lo">ລາວ (Lao)</option>
+            <option value="lt">Lietuvių</option>
+            <option value="lv">Latviešu</option>
+            <option value="mg">Malagasy</option>
+            <option value="mi">Māori</option>
+            <option value="mk">Македонски</option>
+            <option value="ml">മലയാളം (Malayalam)</option>
+            <option value="mn">Монгол</option>
+            <option value="mr">मराठी (Marathi)</option>
+            <option value="ms">Bahasa Melayu</option>
+            <option value="mt">Malti</option>
+            <option value="my">ဗမာ (Burmese)</option>
+            <option value="ne">नेपाली</option>
+            <option value="nl">Nederlands</option>
+            <option value="nn">Nynorsk</option>
+            <option value="no">Norsk</option>
+            <option value="oc">Occitan</option>
+            <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            <option value="pl">Polski</option>
+            <option value="ps">پښتو (Pashto)</option>
+            <option value="ro">Română</option>
+            <option value="sa">संस्कृतम् (Sanskrit)</option>
+            <option value="sd">سنڌي (Sindhi)</option>
+            <option value="si">සිංහල (Sinhala)</option>
+            <option value="sk">Slovenčina</option>
+            <option value="sl">Slovenščina</option>
+            <option value="sn">chiShona</option>
+            <option value="so">Soomaali</option>
+            <option value="sq">Shqip</option>
+            <option value="sr">Српски</option>
+            <option value="su">Basa Sunda</option>
+            <option value="sv">Svenska</option>
+            <option value="sw">Kiswahili</option>
+            <option value="ta">தமிழ் (Tamil)</option>
+            <option value="te">తెలుగు (Telugu)</option>
+            <option value="tg">Тоҷикӣ (Tajik)</option>
+            <option value="th">ไทย</option>
+            <option value="tk">Türkmençe</option>
+            <option value="tl">Tagalog</option>
+            <option value="tt">Татарча</option>
+            <option value="uk">Українська</option>
+            <option value="ur">اردو</option>
+            <option value="uz">Oʻzbekcha</option>
+            <option value="vi">Tiếng Việt</option>
+            <option value="yi">ייִדיש</option>
+            <option value="yo">Yorùbá</option>
+            <option value="yue">粵語 (Cantonese)</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          Altyazı Stili
+          <span class="field-hint">karakter / satır</span>
+        </label>
+        <div class="seg-row" id="styleSeg">
+          <button type="button" class="seg" data-chars="18">18</button>
+          <button type="button" class="seg is-active" data-chars="22">Kısa<small>22</small></button>
+          <button type="button" class="seg" data-chars="28">Orta<small>28</small></button>
+          <button type="button" class="seg" data-chars="35">Geniş<small>35</small></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Timeline Konumu</label>
+        <div class="seg-row" id="placementSeg">
+          <button type="button" class="seg is-active" data-mode="sequence_start">Sekans Başı</button>
+          <button type="button" class="seg" data-mode="playhead">İmleç Konumu</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">SRT Çıktı Yeri</label>
+        <select id="outputDirMode">
+          <option value="project" selected>📁 Proje klasörü (.prproj yanına)</option>
+          <option value="default">📂 FreeCaption/output klasörü</option>
+          <option value="custom">🗂 Özel klasör seç…</option>
+        </select>
+        <div id="customDirRow" class="custom-dir-row hidden">
+          <input type="text" id="customDirInput" placeholder="C:\Users\...\MyFolder" />
+          <button type="button" id="customDirBtn" class="btn-mini-icon" title="Klasör seç">📁</button>
+        </div>
+      </div>
+
+      <label class="toggle">
+        <input type="checkbox" id="autoPlace" checked />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">
+          <strong>Otomatik timeline'a yerleştir</strong>
+        </span>
+      </label>
+    </section>
+
+    <!-- Ana CTA (sticky) -->
+    <div class="cta-sticky">
+      <button id="generateBtn" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <span>Altyazı Üret</span>
+      </button>
+    </div>
+
+    <!-- İş durumu -->
+    <section id="jobBox" class="card job-card hidden">
+      <div class="job-head">
+        <div id="jobName" class="job-name">—</div>
+        <div id="jobStatus" class="badge">—</div>
+      </div>
+      <div id="jobStage" class="job-stage">—</div>
+      <div class="bar"><div id="bar" class="bar-fill"></div></div>
+      <div id="jobError" class="error hidden"></div>
+    </section>
+
+    </div><!-- /TAB 1 -->
+
+    <!-- TAB 2: STİL VER -->
+    <div class="tab-panel" id="tab-style">
+
+      <!-- SRT kaynak -->
+      <section class="card">
+        <label class="field-label">SRT Kaynağı</label>
+        <div class="row-actions">
+          <button id="loadFromLastBtn" class="btn-ghost">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Son üretilen SRT'yi yükle
+          </button>
+          <button id="loadFromFileBtn" class="btn-ghost">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            Dosya seç…
+          </button>
+        </div>
+        <div id="srtInfo" class="srt-info">
+          <span class="srt-info-dim">SRT yüklenmedi · Tab 1'de üretin veya dosya seçin</span>
+        </div>
+      </section>
+
+      <!-- Hazır presetler -->
+      <section class="card">
+        <label class="field-label">Hazır Stil</label>
+        <div class="preset-grid">
+          <button class="preset-btn" data-preset="tiktok">
+            <strong>TikTok</strong>
+            <small>Sarı karaoke</small>
+          </button>
+          <button class="preset-btn" data-preset="classic">
+            <strong>Klasik</strong>
+            <small>Beyaz + arka plan</small>
+          </button>
+          <button class="preset-btn" data-preset="minimal">
+            <strong>Minimal</strong>
+            <small>Sade fade</small>
+          </button>
+          <button class="preset-btn" data-preset="bold">
+            <strong>Kalın</strong>
+            <small>Pop scale</small>
+          </button>
+        </div>
+      </section>
+
+      <!-- Canvas Preview (sticky) - Aspect toggle ile tek büyük canvas -->
+      <section class="card preview-card sticky-preview">
+        <div class="preview-head">
+          <div class="aspect-seg" id="aspectSeg" role="tablist" aria-label="Önizleme oranı">
+            <button class="aspect-btn is-active" data-aspect="16:9" title="Yatay">
+              <svg width="14" height="10" viewBox="0 0 16 9" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="0.5" y="0.5" width="15" height="8" rx="1"/></svg>
+              <span>16:9</span>
+            </button>
+            <button class="aspect-btn" data-aspect="9:16" title="Dikey">
+              <svg width="9" height="14" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="0.5" y="0.5" width="8" height="15" rx="1"/></svg>
+              <span>9:16</span>
+            </button>
+          </div>
+          <div class="preview-controls">
+            <button id="previewPlayBtn" class="btn-ghost btn-icon-only" title="Oynat/Duraklat">
+              <svg id="playIcon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+            <input id="previewTime" type="range" min="0" max="100" value="0" step="0.1" />
+            <span id="previewTimeLabel" class="preview-time">0:00</span>
+          </div>
+        </div>
+        <div class="preview-frame preview-single" id="previewFrame">
+          <canvas id="previewCanvas" width="1920" height="1080"></canvas>
+          <div class="frame-handle" id="frameHandleH" title="Sürükleyerek pozisyon ayarla"></div>
+        </div>
+      </section>
+
+      <!-- Animasyon -->
+      <section class="card">
+        <label class="field-label">Animasyon</label>
+        <div class="anim-grid" id="animPresetSeg">
+          <button class="anim-btn is-active" data-preset="karaoke">
+            <strong>Karaoke</strong><small>Vurgulu</small>
+          </button>
+          <button class="anim-btn" data-preset="fade">
+            <strong>Fade</strong><small>Yumuşak</small>
+          </button>
+          <button class="anim-btn" data-preset="pop">
+            <strong>Pop</strong><small>Scale</small>
+          </button>
+          <button class="anim-btn" data-preset="typewriter">
+            <strong>Type</strong><small>Sıralı</small>
+          </button>
+          <button class="anim-btn" data-preset="bounce">
+            <strong>Bounce</strong><small>Zıplama</small>
+          </button>
+        </div>
+        <label class="field-label" style="margin-top:10px">Vurgu Rengi (Karaoke)</label>
+        <input type="color" id="highlightColor" value="#06b6d4" class="color-input" />
+      </section>
+
+      <!-- Font ayarları -->
+      <section class="card">
+        <label class="field-label">Yazı</label>
+        <div class="field-row">
+          <div class="field-col">
+            <small class="field-mini-label">Font</small>
+            <div class="combobox" id="fontCombo">
+              <input type="text" id="styleFontFamily" value="Inter" placeholder="Font seç veya ara…" autocomplete="off" spellcheck="false" />
+              <button type="button" class="combo-toggle" id="fontComboToggle" aria-label="Liste aç">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <ul class="combo-list hidden" id="fontComboList" role="listbox"></ul>
+            </div>
+          </div>
+          <div class="field-col" style="max-width:90px">
+            <small class="field-mini-label">Boyut</small>
+            <input id="styleFontSize" type="number" min="20" max="200" value="64" step="2" />
+          </div>
+          <div class="field-col" style="max-width:90px">
+            <small class="field-mini-label">Ağırlık</small>
+            <select id="styleFontWeight">
+              <option value="400">400</option>
+              <option value="500">500</option>
+              <option value="600">600</option>
+              <option value="700">700</option>
+              <option value="800" selected>800</option>
+              <option value="900">900</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:10px">
+          <div class="field-col">
+            <small class="field-mini-label">Renk</small>
+            <input type="color" id="styleTextColor" value="#ffffff" class="color-input" />
+          </div>
+          <div class="field-col">
+            <small class="field-mini-label">Dönüşüm</small>
+            <select id="styleTextTransform">
+              <option value="none" selected>Normal</option>
+              <option value="uppercase">BÜYÜK HARF</option>
+              <option value="lowercase">küçük harf</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stroke -->
+      <section class="card collapsible">
+        <button class="section-head" data-target="strokeBody">
+          <label class="toggle inline-toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" id="strokeEnabled" checked />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <strong>Çerçeve (Stroke)</strong>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="strokeBody" class="section-body">
+          <div class="field-row">
+            <div class="field-col" style="max-width:90px">
+              <small class="field-mini-label">Renk</small>
+              <input type="color" id="strokeColor" value="#000000" class="color-input" />
+            </div>
+            <div class="field-col" style="max-width:90px">
+              <small class="field-mini-label">Kalınlık</small>
+              <input id="strokeWidth" type="number" min="0" max="20" value="4" />
+            </div>
+            <div class="field-col">
+              <small class="field-mini-label">Opaklık <span id="strokeOpacityVal" class="slider-val">100%</span></small>
+              <input id="strokeOpacity" type="range" min="0" max="1" step="0.05" value="1" class="slider" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Shadow -->
+      <section class="card collapsible">
+        <button class="section-head" data-target="shadowBody">
+          <label class="toggle inline-toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" id="shadowEnabled" checked />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <strong>Gölge</strong>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="shadowBody" class="section-body">
+          <div class="field-row">
+            <div class="field-col" style="max-width:90px">
+              <small class="field-mini-label">Renk</small>
+              <input type="color" id="shadowColor" value="#000000" class="color-input" />
+            </div>
+            <div class="field-col" style="max-width:90px">
+              <small class="field-mini-label">Blur</small>
+              <input id="shadowBlur" type="number" min="0" max="50" value="8" />
+            </div>
+            <div class="field-col" style="max-width:80px">
+              <small class="field-mini-label">Y</small>
+              <input id="shadowOffsetY" type="number" min="-50" max="50" value="2" />
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:8px">
+            <div class="field-col">
+              <small class="field-mini-label">Opaklık <span id="shadowOpacityVal" class="slider-val">60%</span></small>
+              <input id="shadowOpacity" type="range" min="0" max="1" step="0.05" value="0.6" class="slider" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Background -->
+      <section class="card collapsible">
+        <button class="section-head" data-target="bgBody">
+          <label class="toggle inline-toggle" onclick="event.stopPropagation()">
+            <input type="checkbox" id="backgroundEnabled" />
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          </label>
+          <strong>Arka Plan</strong>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="bgBody" class="section-body">
+          <div class="field-row">
+            <div class="field-col" style="max-width:90px">
+              <small class="field-mini-label">Renk</small>
+              <input type="color" id="backgroundColor" value="#000000" class="color-input" />
+            </div>
+            <div class="field-col">
+              <small class="field-mini-label">Opaklık <span id="backgroundOpacityVal" class="slider-val">55%</span></small>
+              <input id="backgroundOpacity" type="range" min="0" max="1" step="0.05" value="0.55" class="slider" />
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:8px">
+            <div class="field-col">
+              <small class="field-mini-label">Padding <span id="backgroundPaddingVal" class="slider-val">18px</span></small>
+              <input id="backgroundPadding" type="range" min="0" max="60" step="1" value="18" class="slider" />
+            </div>
+            <div class="field-col">
+              <small class="field-mini-label">Köşe <span id="backgroundRadiusVal" class="slider-val">12px</span></small>
+              <input id="backgroundRadius" type="range" min="0" max="50" step="1" value="12" class="slider" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Pozisyon -->
+      <section class="card">
+        <label class="field-label">Pozisyon</label>
+
+        <!-- Hızlı presetler -->
+        <div class="pos-preset-grid">
+          <button class="pos-preset" data-y="0.10" title="Üst (Reels üstü)">
+            <span class="pos-icon"><span class="pos-bar" style="top:10%"></span></span>
+            <small>Üst</small>
+          </button>
+          <button class="pos-preset" data-y="0.28" title="Orta-Üst">
+            <span class="pos-icon"><span class="pos-bar" style="top:28%"></span></span>
+            <small>Üst-Orta</small>
+          </button>
+          <button class="pos-preset" data-y="0.50" title="Tam Orta">
+            <span class="pos-icon"><span class="pos-bar" style="top:50%"></span></span>
+            <small>Orta</small>
+          </button>
+          <button class="pos-preset" data-y="0.72" title="Orta-Alt">
+            <span class="pos-icon"><span class="pos-bar" style="top:72%"></span></span>
+            <small>Alt-Orta</small>
+          </button>
+          <button class="pos-preset is-active" data-y="0.85" title="Alt (Standart)">
+            <span class="pos-icon"><span class="pos-bar" style="top:85%"></span></span>
+            <small>Alt</small>
+          </button>
+          <button class="pos-preset" data-y="0.92" title="Çok Alt (Safe area)">
+            <span class="pos-icon"><span class="pos-bar" style="top:92%"></span></span>
+            <small>En Alt</small>
+          </button>
+        </div>
+
+        <!-- İnce ayar slider'ları -->
+        <div class="field-row" style="margin-top:14px">
+          <div class="field-col">
+            <small class="field-mini-label">Dikey konum <span id="positionYVal" class="slider-val">85%</span></small>
+            <input id="positionY" type="range" min="0" max="1" step="0.01" value="0.85" class="slider" />
+          </div>
+        </div>
+        <div class="field-row" style="margin-top:8px">
+          <div class="field-col">
+            <small class="field-mini-label">Yatay konum <span id="positionXVal" class="slider-val">50%</span></small>
+            <input id="positionX" type="range" min="0" max="1" step="0.01" value="0.5" class="slider" />
+          </div>
+          <div class="field-col" style="max-width:110px">
+            <small class="field-mini-label">Hizala</small>
+            <select id="textAlign">
+              <option value="left">Sol</option>
+              <option value="center" selected>Orta</option>
+              <option value="right">Sağ</option>
+            </select>
+          </div>
+        </div>
+
+        <p class="field-hint" style="margin-top:10px">
+          💡 Önizleme alanındaki yatay <b>tutamağı</b> sürükleyerek de pozisyon ayarlayabilirsin.
+        </p>
+      </section>
+
+      <!-- Export FPS Seçimi -->
+      <section class="card collapsible">
+        <button class="section-head" data-target="exportFpsBody">
+          <strong>PNG İmport FPS</strong>
+          <span class="chevron">▾</span>
+        </button>
+        <div id="exportFpsBody" class="section-body">
+          <div class="field-row">
+            <div class="field-col">
+              <small class="field-mini-label">Frame Rate (Premiere preference ile EŞLEŞMELİ)</small>
+              <select id="exportFps">
+                <option value="auto">Otomatik (sekans fps)</option>
+                <option value="23.976">23.976</option>
+                <option value="24">24</option>
+                <option value="25">25</option>
+                <option value="29.97">29.97</option>
+                <option value="30" selected>30</option>
+                <option value="50">50</option>
+                <option value="59.94">59.94</option>
+                <option value="60">60</option>
+              </select>
+            </div>
+          </div>
+          <p class="field-hint">
+            ⚠ Premiere'in PNG dizisi default fps'i ile <b>aynı olmalı</b>.<br>
+            Kontrol: <b>Edit → Preferences → Media → Indeterminate Media Timebase</b>.<br>
+            Eşleşmezse altyazılar zamanla kayar (çoğu Premiere'de default 25).
+          </p>
+        </div>
+      </section>
+
+      <!-- Export (sticky) -->
+      <div class="cta-sticky">
+        <button id="exportBtn" class="btn-primary" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>PNG Sequence Export</span>
+        </button>
+        <div id="exportInfo" class="export-info hidden"></div>
+      </div>
+
+    </div><!-- /TAB 2 -->
+
+    <!-- Footer -->
+    <footer class="foot">
+      <a href="https://github.com/emrekazak/FreeCaption" id="ghLink" class="foot-link">GitHub</a>
+      <span class="sep">·</span>
+      <a href="https://emrekazak.com" id="webLink" class="foot-link">emrekazak.com</a>
+      <span class="sep">·</span>
+      <span class="foot-version">v1.0</span>
+    </footer>
+
+  </div>
+
+  <script src="js/CSInterface.js"></script>
+  <script src="js/style/defaults.js"></script>
+  <script src="js/style/parser.js"></script>
+  <script src="js/style/renderer.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/style/tab-style.js"></script>
+</body>
+</html>
