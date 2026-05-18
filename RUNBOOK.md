@@ -4,12 +4,139 @@
 
 ## İçindekiler
 
-1. [🚨 ACİL — "Bir Şey Bozuk, Hemen Düzeltmek İstiyorum"](#acil)
-2. [🆕 Yeni Windows 11 VDS Kurulumu (Sıfırdan)](#yeni-windows-11-vds-kurulumu)
-3. [🔄 Eski Sunucudan Yeni VDS'ye Geçiş](#migration)
-4. [🛠️ Tipik Sorunlar ve Çözümleri](#tipik-sorunlar)
-5. [📊 Sağlık Kontrolleri](#saglik-kontrolleri)
-6. [📚 Komut Hatırlatıcı](#komut-hatirlatici)
+1. [✅ Sıradaki Adımım — Hızlı Kontrol Listesi](#siradaki-adim)
+2. [🚨 ACİL — "Bir Şey Bozuk, Hemen Düzeltmek İstiyorum"](#acil)
+3. [🆕 Yeni Windows 11 VDS Kurulumu (Sıfırdan)](#yeni-windows-11-vds-kurulumu)
+4. [🔄 Eski Sunucudan Yeni VDS'ye Geçiş](#migration)
+5. [📦 Plugin/Backend Güncelleme + Yeni Release Yayınlama](#guncelleme)
+6. [🛠️ Tipik Sorunlar ve Çözümleri](#tipik-sorunlar)
+7. [📊 Sağlık Kontrolleri](#saglik-kontrolleri)
+8. [📚 Komut Hatırlatıcı](#komut-hatirlatici)
+
+---
+
+## ✅ Sıradaki Adımım — Hızlı Kontrol Listesi {#siradaki-adim}
+
+Aşağıdaki sırayla işle. Her madde tamamlandıkça [x] yap.
+
+### Bugün (mevcut Server VDS çalışıyor)
+
+- [x] Plugin AppData'da güncel (font combobox + tüm fix'ler dahil)
+- [x] VDS canlı (`191.44.68.233`)
+- [ ] **Sen şu an**: video çek, dokunma ✓
+
+### Yarın — Yeni Windows 11 VDS Kurulumu (~30 dk toplam)
+
+#### A) Sunucu Satın Alma (5 dk)
+
+- [ ] TR VDS provider'a git (ucuz Win 11 VDS satan)
+- [ ] Önerilen spec:
+  - **OS**: Windows 11 Pro x64
+  - **CPU**: Min 4 vCPU **dedicated** (vCPU paylaşımlı OLMAZ)
+  - **RAM**: 8 GB DDR4
+  - **Disk**: 25-50 GB NVMe SSD
+  - **Network**: 10 Gbit (genelde Türk provider'larda var)
+  - **Lokasyon**: TR (düşük ping)
+- [ ] Satın al → email/SMS'ten RDP bilgileri gelir (IP + user + şifre)
+
+#### B) RDP ile Bağlan (2 dk)
+
+- [ ] Lokal makinende **Win+R** → `mstsc` → Enter
+- [ ] **Computer**: `<YENI_VDS_IP>`
+- [ ] **Show Options** → **User name**: `Administrator`
+- [ ] **Connect** → şifre → **Yes** (sertifika uyarısı)
+- [ ] VDS masaüstü açılır
+
+#### C) FreeCaption Tek Tuş Kurulum (15 dk otomatik)
+
+- [ ] VDS masaüstünde Start → "powershell" yaz → **Windows PowerShell** sağ tık → **Run as administrator**
+- [ ] UAC uyarısı → **Yes**
+- [ ] Mavi PowerShell penceresine **sırayla şu 4 satırı yapıştır + Enter**:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass -Force
+```
+
+```powershell
+$url = "https://raw.githubusercontent.com/ScamEmre/FreeCaption/main/deploy/windows/install_windows.ps1"
+```
+
+```powershell
+Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\install.ps1" -UseBasicParsing
+```
+
+```powershell
+& "$env:TEMP\install.ps1"
+```
+
+- [ ] Script başlar. 15 adım otomatik ilerler (~15 dk).
+- [ ] **🟡 Adım 9'da SARI KUTU** ile API Key ekrana çıkar — **HEMEN KOPYALA** (Notepad'e yapıştır):
+  ```
+  API Key: ?_____________________________________
+  ```
+- [ ] **🟡 Adım 10'da "Domain..." sorusu** çıkar → **boş bırak, Enter** (şimdilik IP modu HTTP)
+- [ ] **Adım 14**: Whisper modeli indirme — 3-5 dk bekle, hata değil
+- [ ] Adım 15 → KURULUM TAMAM mesajı
+
+#### D) Sunucu Doğrulama (2 dk)
+
+Aynı PowerShell'de:
+
+```powershell
+Get-Service FreeCaption, FreeCaptionCaddy | Format-Table Name, Status
+```
+- [ ] İki satır da **Running** olmalı
+
+```powershell
+(Invoke-WebRequest "http://127.0.0.1:7860/api/health" -UseBasicParsing).Content
+```
+- [ ] Çıktı: `{"ok":true,"gpu":false,...}` görmeli
+
+```powershell
+$ip = (Invoke-WebRequest "https://api.ipify.org" -UseBasicParsing).Content; "Yeni VDS IP: $ip"
+```
+- [ ] **IP'yi not al**: ?_____________________________________
+
+#### E) Premiere Panel'i Yeni Sunucuya Bağla (2 dk)
+
+Lokal makinende:
+
+- [ ] Premiere açık → Window → Extensions → FreeCaption
+- [ ] Topbar'da **⚙ butonu** → tıkla
+- [ ] **İlk prompt — URL**: `http://<YENI_IP>` (sadece IP yaz, http:// otomatik eklenir ama yazsan da olur)
+- [ ] **İkinci prompt — API Key**: Notepad'e kaydettiğin değeri yapıştır
+- [ ] Toast: "Ayarlar kaydedildi" görünür
+- [ ] 5 saniye içinde sağ üstte **health badge yeşil "CPU modu"** olmalı ✓
+
+#### F) Test Transcript (1-2 dk)
+
+- [ ] Premiere'de bir test klibi seç (10-30 sn ses)
+- [ ] Tab 1 → Altyazı Üret butonuna bas
+- [ ] Beklenen akış:
+  ```
+  Ses cikariliyor (FFmpeg)…           ← 5-10 sn
+  WAV yukleniyor (X MB)…              ← 5-15 sn
+  Model yukleniyor…                    ← 3 sn (cache'ten)
+  Transkripsiyon (medium)…             ← ~30 sn
+  Tamamlandi
+  ```
+- [ ] Caption track timeline'a düşmeli ✓
+
+#### G) Eski Sunucuyu Kapat (sonra, 1-2 hafta sonra)
+
+- [ ] Yeni sunucu 1 hafta sorunsuz çalıştıysa
+- [ ] Eski TR provider abonelik panelinden iptal et
+- [ ] Lokal `localStorage.fc_api_url` zaten yeni IP'de, dokunma gerek yok
+
+### Yarın Sonrası — Plugin/Kod Güncellemesi (haftalık)
+
+#### H) Kod değişikliği yaptın → yeni release çıkar
+
+- [ ] Lokal'de değişiklikleri test et (Premiere'de plugin çalıştığını gör)
+- [ ] GitHub Desktop'tan **commit + push**
+- [ ] Plugin değişikliği varsa **yeni ZIP üret + Release'i güncelle** (bölüm 5 — Güncelleme)
+
+---
 
 ---
 
@@ -159,6 +286,139 @@ Mevcut Server'daki `191.44.68.233` durmaya devam etsin, paralel olarak yeni Win 
 | Log dosyaları | `C:\FreeCaption\logs\` | ❌ Önemsiz |
 
 **Hiçbir manuel transfer gerekmez** — install scripti her şeyi sıfırdan kuruyor. Sadece üretmiş olduğun SRT'leri bilgisayarına indir (varsa).
+
+---
+
+## 📦 Plugin/Backend Güncelleme + Yeni Release Yayınlama {#guncelleme}
+
+### Senaryo: Bir kod değişikliği yaptın, yeni sürüm yayınlamak istiyorsun
+
+#### Adım 1 — Lokal'de Test
+
+- [ ] Plugin değişikliği yaptıysan: `cep_kur.bat` çalıştır (source → AppData sync)
+- [ ] Premiere kapat-aç, değişikliği test et
+- [ ] Backend değişikliği yaptıysan: VDS'de raw URL'den dosyayı çek (aşağıda komut)
+
+#### Adım 2 — GitHub'a Commit + Push
+
+GitHub Desktop ile (önerilen):
+
+- [ ] Desktop'ı aç, Current repository: FreeCaption
+- [ ] Sol alttaki **Summary** kutusuna kısa açıklama yaz (örn. "feat: konuşmacı ayırma desteği")
+- [ ] **Commit to main**
+- [ ] Üstte **Push origin** butonu → tıkla
+
+Veya komut satırı:
+```bash
+cd <repo-yolu>
+git add -A
+git commit -m "feat: açıklama"
+git push origin main
+```
+
+#### Adım 3 — Sürüm Numarası Belirle (Semver)
+
+- **MAJOR** (v1.0.0 → v2.0.0): Geriye dönük uyumsuz değişiklik
+- **MINOR** (v1.0.0 → v1.1.0): Yeni özellik, eskileri bozmaz
+- **PATCH** (v1.0.0 → v1.0.1): Sadece hata düzeltmesi
+
+#### Adım 4 — CHANGELOG Güncelle
+
+- [ ] `CHANGELOG.md`'yi aç
+- [ ] En üste yeni sürüm bloğu ekle:
+  ```markdown
+  ## [1.1.0] — 2026-MM-DD
+
+  ### Eklenenler
+  - Konuşmacı ayırma (diarization)
+  - ...
+
+  ### Düzeltmeler
+  - X bug fix
+  ```
+- [ ] Commit: `docs: CHANGELOG v1.1.0`
+
+#### Adım 5 — Plugin ZIP Oluştur
+
+Repo kökündeki PowerShell:
+
+```powershell
+$VERSION = "1.1.0"  # yeni sürüm
+New-Item -ItemType Directory -Force -Path dist | Out-Null
+Compress-Archive -Path cep-plugin\* -DestinationPath "dist\FreeCaption-plugin-v$VERSION.zip" -Force
+Get-Item "dist\FreeCaption-plugin-v$VERSION.zip" | Select-Object Name, @{N='KB';E={[math]::Round($_.Length/1KB,1)}}
+```
+
+Çıktı `dist/FreeCaption-plugin-v1.1.0.zip` (~55-60 KB).
+
+#### Adım 6 — Git Tag Oluştur
+
+GitHub Desktop'ta:
+- [ ] **History** sekmesi → son commit'e sağ tık → **Create Tag…**
+- [ ] Tag adı: `v1.1.0` → enter
+- [ ] **Push origin** ile tag'i de gönder
+
+Veya CLI:
+```bash
+git tag -a v1.1.0 -m "v1.1.0: kısa açıklama"
+git push origin v1.1.0
+```
+
+#### Adım 7 — GitHub Release Yayınla
+
+- [ ] https://github.com/ScamEmre/FreeCaption/releases/new aç
+- [ ] **Choose a tag**: `v1.1.0` (yukarıda oluşturduğun)
+- [ ] **Release title**: `v1.1.0 — Konuşmacı Ayırma`
+- [ ] **Description**: CHANGELOG.md'deki ilgili bölümü kopyala/yapıştır
+- [ ] **Attach binaries**: `dist/FreeCaption-plugin-v1.1.0.zip` sürükle bırak
+- [ ] **Set as the latest release** ✓
+- [ ] **Publish release**
+
+#### Adım 8 — VDS'yi Yeni Sürüme Güncelle
+
+RDP ile VDS'ye bağlan, admin PowerShell:
+
+```powershell
+# Backend dosyalarını yenile (cache bypass)
+$base = "https://raw.githubusercontent.com/ScamEmre/FreeCaption/HEAD"
+$n = Get-Random
+Invoke-WebRequest "$base/backend/main.py?n=$n" -OutFile "C:\FreeCaption\backend\main.py" -UseBasicParsing
+Invoke-WebRequest "$base/backend/transcribe.py?n=$n" -OutFile "C:\FreeCaption\backend\transcribe.py" -UseBasicParsing
+Invoke-WebRequest "$base/backend/subtitle.py?n=$n" -OutFile "C:\FreeCaption\backend\subtitle.py" -UseBasicParsing
+Invoke-WebRequest "$base/backend/audio.py?n=$n" -OutFile "C:\FreeCaption\backend\audio.py" -UseBasicParsing
+Invoke-WebRequest "$base/backend/config.py?n=$n" -OutFile "C:\FreeCaption\backend\config.py" -UseBasicParsing
+
+# requirements.txt değiştiyse paketleri güncelle:
+Invoke-WebRequest "$base/backend/requirements.txt?n=$n" -OutFile "C:\FreeCaption\backend\requirements.txt" -UseBasicParsing
+cd C:\FreeCaption
+.\.venv\Scripts\pip install -r backend\requirements.txt --upgrade
+
+# Servisleri restart
+Restart-Service FreeCaption
+Start-Sleep 8
+"Health: " + (Invoke-WebRequest 'http://127.0.0.1:7860/api/health' -UseBasicParsing).Content
+```
+
+#### Adım 9 — Lokal Plugin'i Güncelle
+
+Lokal makinende:
+
+**Yol A — Auto-update butonu (önerilen)**:
+- [ ] Premiere → FreeCaption panel → **🔄 update butonu**
+- [ ] Onay → ZIP indirilir + plugin AppData'ya yazılır + panel reload
+
+**Yol B — Manuel cep_kur.bat**:
+```cmd
+cd <repo-yolu>
+cep_kur.bat
+```
+Premiere kapat-aç.
+
+#### Adım 10 — Test
+
+- [ ] Premiere'de Altyazı Üret → çalışıyor mu?
+- [ ] Yeni özelliği dene (örn. konuşmacı ayırma)
+- [ ] Caption track düzgün mü, kayma yok mu?
 
 ---
 
