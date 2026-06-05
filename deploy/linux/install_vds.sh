@@ -20,8 +20,13 @@ if ! id -u "${APP_USER}" >/dev/null 2>&1; then
     useradd --system --home "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
 fi
 
-echo "==> 3/8 Dizin haklari"
+echo "==> 3/8 Dizin haklari ve proje dosyalarinin kopyalanmasi"
 mkdir -p "${APP_DIR}"
+
+# Scriptin calistigi repo kok dizinini bulup dosyalari kopyala
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cp -R "${REPO_ROOT}/"* "${APP_DIR}/"
+
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
 # .env yoksa template'den uret
