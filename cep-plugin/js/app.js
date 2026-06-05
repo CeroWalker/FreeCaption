@@ -831,7 +831,12 @@
       })
       .then(function (info) {
         console.log("[CEP] getSelectedClipInfo:", info);
-        if (info && info.ok) lastClipInfo = info;
+        if (info && info.ok) {
+          lastClipInfo = info;
+          if (lastClipInfo.mediaPath) lastClipInfo.mediaPath = decodeURIComponent(lastClipInfo.mediaPath);
+          if (lastClipInfo.itemName) lastClipInfo.itemName = decodeURIComponent(lastClipInfo.itemName);
+          if (lastClipInfo.seqName) lastClipInfo.seqName = decodeURIComponent(lastClipInfo.seqName);
+        }
         return checkHealth();
       })
       .then(function (ok) {
@@ -868,7 +873,11 @@
         jobStage.textContent = "Ses cikariliyor (FFmpeg)…";
         extractWav(lastClipInfo.mediaPath, lastClipInfo.inPoint, lastClipInfo.outPoint, function (errW, wavPath) {
           if (errW) {
-            failJob("FFmpeg hata: " + errW.message + "\n\nFFmpeg PATH'te olmali. winget install ffmpeg ile kurabilirsin.");
+            var isMac = typeof process !== "undefined" && process.platform === "darwin";
+            var installHelp = isMac 
+              ? "FFmpeg bulunamadi. Terminal'den 'brew install ffmpeg' ile kurabilirsin." 
+              : "FFmpeg PATH'te olmali. 'winget install ffmpeg' ile kurabilirsin.";
+            failJob("FFmpeg hata: " + errW.message + "\n\n" + installHelp);
             generateBtn.disabled = false;
             return;
           }
