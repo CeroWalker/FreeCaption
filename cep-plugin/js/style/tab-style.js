@@ -229,6 +229,10 @@
 
   function fetchFontsFromPowerShell() {
     try {
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        tryQueryLocalFonts();
+        return;
+      }
       var req = (typeof require === "function") ? require : (typeof window.cep_node !== "undefined" ? window.cep_node.require : null);
       if (!req) {
         console.warn("[CEP] Node require yok, font fetch atlandi");
@@ -888,7 +892,7 @@
       // Frame klasörü: fc_frames_HHMMSS
       var stamp = new Date().toTimeString().slice(0,8).replace(/:/g, "");
       var folderName = "fc_frames_" + stamp;
-      var folder = baseDir + "\\" + folderName;
+      var folder = path.join(baseDir, folderName);
       try {
         fs.mkdirSync(folder, { recursive: true });
       } catch (e) {
@@ -993,7 +997,7 @@
         var base64 = dataUrl.split(",")[1];
         var buffer = Buffer.from(base64, "base64");
         var num = String(frameIndex).padStart(6, "0");
-        var filePath = folder + "\\frame_" + num + ".png";
+        var filePath = path.join(folder, "frame_" + num + ".png");
         try {
           fs.writeFileSync(filePath, buffer);
           if (!firstFile) firstFile = filePath;

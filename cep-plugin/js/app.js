@@ -178,6 +178,10 @@
   }
 
   if (srvStartBtn) srvStartBtn.addEventListener("click", function () {
+    if (typeof process !== "undefined" && process.platform === "darwin") {
+      setServerStatus("macOS'ta yerel başlatma desteklenmiyor. Lütfen VDS sunucusuna bağlanın.", "err");
+      return;
+    }
     setServerStatus("Başlatılıyor…", "busy");
     // Lokal sunucu yolu kullanıcı tarafından ayarlanabilir (⚙ Sunucu Ayarları → Lokal mod)
     // VDS modunda bu buton kullanılmaz; URL uzak sunucuya işaret eder.
@@ -317,9 +321,15 @@
       var dir = loc.substring(0, loc.lastIndexOf("/"));
       // Windows mutlak yolu (file:///C:/...)
       if (/^\/[A-Za-z]:\//.test(dir)) dir = dir.substring(1);
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        return dir;
+      }
       return dir.replace(/\//g, "\\");
     } catch (e) {
       // Fallback
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        return process.env.HOME + "/Library/Application Support/Adobe/CEP/extensions/FreeCaption";
+      }
       return process.env.APPDATA + "\\Adobe\\CEP\\extensions\\FreeCaption";
     }
   }
@@ -381,18 +391,18 @@
 
       showToast("ZIP indiriliyor…");
 
-      // PowerShell ile indir + aç + kopyala (CEP'te node https büyük ZIP'lerde yavaş)
-      var psCmd =
-        "Invoke-WebRequest '" + zipUrl + "' -OutFile '" + tempZip + "' -UseBasicParsing; " +
-        "Expand-Archive '" + tempZip + "' '" + extractDir + "' -Force; " +
-        "$src = Get-ChildItem '" + extractDir + "' -Directory | Select-Object -First 1; " +
-        "Copy-Item -Path \"$($src.FullName)\\cep-plugin\\*\" -Destination '" + extDir + "' -Recurse -Force; " +
-        "Set-Content -Path '" + extDir + "\\.fc_commit' -Value '" + sha + "' -Encoding ASCII -NoNewline; " +
-        "Remove-Item '" + tempZip + "','" + extractDir + "' -Recurse -Force";
+      var isMac = (typeof process !== "undefined" && process.platform === "darwin");
+      if (isMac) {
+        var shCmd =
+          "curl -L '" + zipUrl + "' -o '" + tempZip + "' && " +
+          "mkdir -p '" + extractDir + "' && " +
+          "unzip -q '" + tempZip + "' -d '" + extractDir + "' && " +
+          "src_dir=$(find '" + extractDir + "' -maxdepth 1 -type d | grep -v '^" + extractDir + "$' | head -n 1) && " +
+          "cp -R \"$src_dir/cep-plugin/\"* '" + extDir + "' && " +
+          "echo -n '" + sha + "' > '" + extDir + "/.fc_commit' && " +
+          "rm -rf '" + tempZip + "' '" + extractDir + "'";
 
-      cp.exec('powershell -NoProfile -ExecutionPolicy Bypass -Command "' + psCmd.replace(/"/g, '\\"') + '"',
-        { maxBuffer: 100 * 1024 * 1024 },
-        function (err, stdout, stderr) {
+        cp.exec(shCmd, { maxBuffer: 100 * 1024 * 1024 }, function (err, stdout, stderr) {
           if (err) {
             showToast("✗ Güncelleme hata: " + (stderr || err.message).slice(0, 150), true);
             if (updateBtn) updateBtn.disabled = false;
@@ -401,6 +411,28 @@
           showToast("✓ Güncellendi → " + sha.substring(0, 7) + " · Panel yeniden yükleniyor…");
           setTimeout(function () { window.location.reload(); }, 1500);
         });
+      } else {
+        // PowerShell ile indir + aç + kopyala (CEP'te node https büyük ZIP'lerde yavaş)
+        var psCmd =
+          "Invoke-WebRequest '" + zipUrl + "' -OutFile '" + tempZip + "' -UseBasicParsing; " +
+          "Expand-Archive '" + tempZip + "' '" + extractDir + "' -Force; " +
+          "$src = Get-ChildItem '" + extractDir + "' -Directory | Select-Object -First 1; " +
+          "Copy-Item -Path \"$($src.FullName)\\cep-plugin\\*\" -Destination '" + extDir + "' -Recurse -Force; " +
+          "Set-Content -Path '" + extDir + "\\.fc_commit' -Value '" + sha + "' -Encoding ASCII -NoNewline; " +
+          "Remove-Item '" + tempZip + "','" + extractDir + "' -Recurse -Force";
+
+        cp.exec('powershell -NoProfile -ExecutionPolicy Bypass -Command "' + psCmd.replace(/"/g, '\\"') + '"',
+          { maxBuffer: 100 * 1024 * 1024 },
+          function (err, stdout, stderr) {
+            if (err) {
+              showToast("✗ Güncelleme hata: " + (stderr || err.message).slice(0, 150), true);
+              if (updateBtn) updateBtn.disabled = false;
+              return;
+            }
+            showToast("✓ Güncellendi → " + sha.substring(0, 7) + " · Panel yeniden yükleniyor…");
+            setTimeout(function () { window.location.reload(); }, 1500);
+          });
+      }
     } catch (e) {
       showToast("✗ " + e.message, true);
       if (updateBtn) updateBtn.disabled = false;
@@ -641,6 +673,19 @@
     try {
       var fs = require("fs");
       var path = require("path");
+
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        var macCandidates = [
+          "/opt/homebrew/bin/ffmpeg",
+          "/usr/local/bin/ffmpeg",
+          "/usr/bin/ffmpeg"
+        ];
+        for (var i = 0; i < macCandidates.length; i++) {
+          if (fs.existsSync(macCandidates[i])) return macCandidates[i];
+        }
+        return "ffmpeg"; // PATH fallback
+      }
+
       var candidates = [
         process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe",
         "C:\\ffmpeg\\bin\\ffmpeg.exe",
