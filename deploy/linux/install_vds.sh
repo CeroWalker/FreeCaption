@@ -31,8 +31,8 @@ chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
 # .env yoksa template'den uret
 if [ ! -f "${APP_DIR}/.env" ]; then
-    if [ -f "${APP_DIR}/deploy/.env.example" ]; then
-        cp "${APP_DIR}/deploy/.env.example" "${APP_DIR}/.env"
+    if [ -f "${APP_DIR}/deploy/linux/.env.example" ]; then
+        cp "${APP_DIR}/deploy/linux/.env.example" "${APP_DIR}/.env"
     fi
     # Random API key
     API_KEY="$(${PY} -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -54,7 +54,7 @@ source "${APP_DIR}/.venv/bin/activate"
 pip install --upgrade pip wheel
 # CPU-only torch (CUDA olmayan)
 pip install torch==2.7.1+cpu --index-url https://download.pytorch.org/whl/cpu
-pip install -r "${APP_DIR}/requirements.txt"
+pip install -r "${APP_DIR}/backend/requirements.txt"
 deactivate
 
 echo "==> 5/8 Modeli onceden indir (medium)"
@@ -63,7 +63,7 @@ sudo -u "${APP_USER}" bash -c "cd ${APP_DIR} && source .venv/bin/activate && \
     || echo "  (Uyari: Model on-yukleme atlandi. Ilk istekte indirilecek.)"
 
 echo "==> 6/8 systemd service kur"
-cp "${APP_DIR}/deploy/freecaption.service" /etc/systemd/system/freecaption.service
+cp "${APP_DIR}/deploy/linux/freecaption.service" /etc/systemd/system/freecaption.service
 systemctl daemon-reload
 systemctl enable freecaption
 systemctl restart freecaption
@@ -71,7 +71,7 @@ sleep 2
 systemctl --no-pager status freecaption | head -10 || true
 
 echo "==> 7/8 Nginx reverse proxy"
-cp "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/freecaption
+cp "${APP_DIR}/deploy/linux/nginx.conf" /etc/nginx/sites-available/freecaption
 ln -sf /etc/nginx/sites-available/freecaption /etc/nginx/sites-enabled/freecaption
 # Default site'i devre disi birak (cakismayi onler)
 rm -f /etc/nginx/sites-enabled/default
