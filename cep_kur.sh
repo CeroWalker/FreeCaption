@@ -51,6 +51,70 @@ else
 fi
 echo ""
 
+# 4. FFmpeg & Homebrew check
+echo "[4/3] FFmpeg kontrol ediliyor..."
+set +e  # Hatalarda scriptin hemen durmasını engelle
+
+FFMPEG_OK=0
+if command -v ffmpeg >/dev/null 2>&1; then
+    FFMPEG_OK=1
+elif [ -f "/opt/homebrew/bin/ffmpeg" ] || [ -f "/usr/local/bin/ffmpeg" ] || [ -f "/usr/bin/ffmpeg" ]; then
+    FFMPEG_OK=1
+fi
+
+if [ "${FFMPEG_OK}" -eq 0 ]; then
+    echo ""
+    echo "UYARI: FFmpeg sisteminizde bulunamadı!"
+    echo "Uzak sunucu (VDS) modu için yerel FFmpeg kurulumu zorunludur."
+    read -p "FFmpeg'i otomatik kurmak ister misiniz? (y/n): " install_ff
+    if [[ "${install_ff}" =~ ^[Yy]$ ]]; then
+        # Check if brew exists
+        BREW_PATH=""
+        if command -v brew >/dev/null 2>&1; then
+            BREW_PATH="brew"
+        elif [ -f "/opt/homebrew/bin/brew" ]; then
+            BREW_PATH="/opt/homebrew/bin/brew"
+        elif [ -f "/usr/local/bin/brew" ]; then
+            BREW_PATH="/usr/local/bin/brew"
+        fi
+
+        if [ -z "${BREW_PATH}" ]; then
+            echo "Homebrew bulunamadı!"
+            read -p "Homebrew'i kurup ardından FFmpeg'i kurmak ister misiniz? (y/n): " install_brew
+            if [[ "${install_brew}" =~ ^[Yy]$ ]]; then
+                echo "[!] Homebrew kuruluyor (şifreniz istenebilir)..."
+                /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+                
+                # Load brew in current session
+                if [ -f "/opt/homebrew/bin/brew" ]; then
+                    eval "$(/opt/homebrew/bin/brew shellenv)"
+                    BREW_PATH="/opt/homebrew/bin/brew"
+                elif [ -f "/usr/local/bin/brew" ]; then
+                    eval "$(/usr/local/bin/brew shellenv)"
+                    BREW_PATH="/usr/local/bin/brew"
+                fi
+            fi
+        fi
+
+        if [ -n "${BREW_PATH}" ]; then
+            echo "[!] FFmpeg kuruluyor (brew)..."
+            "${BREW_PATH}" install ffmpeg
+            if [ $? -eq 0 ]; then
+                echo "[+] FFmpeg başarıyla kuruldu!"
+            else
+                echo "[-] HATA: FFmpeg kurulumu başarısız oldu."
+            fi
+        else
+            echo "[-] HATA: Homebrew olmadığı için FFmpeg kurulamadı."
+            echo "Lütfen manuel olarak https://ffmpeg.org/ adresinden kurun."
+        fi
+    fi
+else
+    echo "      OK (Sistemde FFmpeg mevcut)"
+fi
+echo ""
+set -e  # set -e'yi tekrar aktif et
+
 echo "==================================================="
 echo "  KURULUM TAMAMLANDI."
 echo ""
