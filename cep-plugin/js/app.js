@@ -178,6 +178,10 @@
   }
 
   if (srvStartBtn) srvStartBtn.addEventListener("click", function () {
+    if (typeof process !== "undefined" && process.platform === "darwin") {
+      setServerStatus("macOS'ta yerel başlatma desteklenmiyor. Lütfen VDS sunucusuna bağlanın.", "err");
+      return;
+    }
     setServerStatus("Başlatılıyor…", "busy");
     // Lokal sunucu yolu kullanıcı tarafından ayarlanabilir (⚙ Sunucu Ayarları → Lokal mod)
     // VDS modunda bu buton kullanılmaz; URL uzak sunucuya işaret eder.
@@ -317,9 +321,15 @@
       var dir = loc.substring(0, loc.lastIndexOf("/"));
       // Windows mutlak yolu (file:///C:/...)
       if (/^\/[A-Za-z]:\//.test(dir)) dir = dir.substring(1);
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        return dir;
+      }
       return dir.replace(/\//g, "\\");
     } catch (e) {
       // Fallback
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        return process.env.HOME + "/Library/Application Support/Adobe/CEP/extensions/FreeCaption";
+      }
       return process.env.APPDATA + "\\Adobe\\CEP\\extensions\\FreeCaption";
     }
   }
@@ -381,18 +391,18 @@
 
       showToast("ZIP indiriliyor…");
 
-      // PowerShell ile indir + aç + kopyala (CEP'te node https büyük ZIP'lerde yavaş)
-      var psCmd =
-        "Invoke-WebRequest '" + zipUrl + "' -OutFile '" + tempZip + "' -UseBasicParsing; " +
-        "Expand-Archive '" + tempZip + "' '" + extractDir + "' -Force; " +
-        "$src = Get-ChildItem '" + extractDir + "' -Directory | Select-Object -First 1; " +
-        "Copy-Item -Path \"$($src.FullName)\\cep-plugin\\*\" -Destination '" + extDir + "' -Recurse -Force; " +
-        "Set-Content -Path '" + extDir + "\\.fc_commit' -Value '" + sha + "' -Encoding ASCII -NoNewline; " +
-        "Remove-Item '" + tempZip + "','" + extractDir + "' -Recurse -Force";
+      var isMac = (typeof process !== "undefined" && process.platform === "darwin");
+      if (isMac) {
+        var shCmd =
+          "curl -L '" + zipUrl + "' -o '" + tempZip + "' && " +
+          "mkdir -p '" + extractDir + "' && " +
+          "unzip -q '" + tempZip + "' -d '" + extractDir + "' && " +
+          "src_dir=$(find '" + extractDir + "' -maxdepth 1 -type d | grep -v '^" + extractDir + "$' | head -n 1) && " +
+          "cp -R \"$src_dir/cep-plugin/\"* '" + extDir + "' && " +
+          "echo -n '" + sha + "' > '" + extDir + "/.fc_commit' && " +
+          "rm -rf '" + tempZip + "' '" + extractDir + "'";
 
-      cp.exec('powershell -NoProfile -ExecutionPolicy Bypass -Command "' + psCmd.replace(/"/g, '\\"') + '"',
-        { maxBuffer: 100 * 1024 * 1024 },
-        function (err, stdout, stderr) {
+        cp.exec(shCmd, { maxBuffer: 100 * 1024 * 1024 }, function (err, stdout, stderr) {
           if (err) {
             showToast("✗ Güncelleme hata: " + (stderr || err.message).slice(0, 150), true);
             if (updateBtn) updateBtn.disabled = false;
@@ -401,6 +411,28 @@
           showToast("✓ Güncellendi → " + sha.substring(0, 7) + " · Panel yeniden yükleniyor…");
           setTimeout(function () { window.location.reload(); }, 1500);
         });
+      } else {
+        // PowerShell ile indir + aç + kopyala (CEP'te node https büyük ZIP'lerde yavaş)
+        var psCmd =
+          "Invoke-WebRequest '" + zipUrl + "' -OutFile '" + tempZip + "' -UseBasicParsing; " +
+          "Expand-Archive '" + tempZip + "' '" + extractDir + "' -Force; " +
+          "$src = Get-ChildItem '" + extractDir + "' -Directory | Select-Object -First 1; " +
+          "Copy-Item -Path \"$($src.FullName)\\cep-plugin\\*\" -Destination '" + extDir + "' -Recurse -Force; " +
+          "Set-Content -Path '" + extDir + "\\.fc_commit' -Value '" + sha + "' -Encoding ASCII -NoNewline; " +
+          "Remove-Item '" + tempZip + "','" + extractDir + "' -Recurse -Force";
+
+        cp.exec('powershell -NoProfile -ExecutionPolicy Bypass -Command "' + psCmd.replace(/"/g, '\\"') + '"',
+          { maxBuffer: 100 * 1024 * 1024 },
+          function (err, stdout, stderr) {
+            if (err) {
+              showToast("✗ Güncelleme hata: " + (stderr || err.message).slice(0, 150), true);
+              if (updateBtn) updateBtn.disabled = false;
+              return;
+            }
+            showToast("✓ Güncellendi → " + sha.substring(0, 7) + " · Panel yeniden yükleniyor…");
+            setTimeout(function () { window.location.reload(); }, 1500);
+          });
+      }
     } catch (e) {
       showToast("✗ " + e.message, true);
       if (updateBtn) updateBtn.disabled = false;
@@ -556,6 +588,11 @@
   var _probeLogged = false;
   function refreshSequenceInfo() {
     evalJSX("getSelectedClipInfo()").then(function (info) {
+      if (info && info.ok) {
+        if (info.itemName) info.itemName = decodeURIComponent(info.itemName);
+        if (info.mediaPath) info.mediaPath = decodeURIComponent(info.mediaPath);
+        if (info.seqName) info.seqName = decodeURIComponent(info.seqName);
+      }
       // V7 probe: ilk gelen probe raporunu console'a tam yaz
       if (info && info.probe && !_probeLogged) {
         console.log("[CEP] V7 PROBE FULL:", info);
@@ -636,6 +673,19 @@
     try {
       var fs = require("fs");
       var path = require("path");
+
+      if (typeof process !== "undefined" && process.platform === "darwin") {
+        var macCandidates = [
+          "/opt/homebrew/bin/ffmpeg",
+          "/usr/local/bin/ffmpeg",
+          "/usr/bin/ffmpeg"
+        ];
+        for (var i = 0; i < macCandidates.length; i++) {
+          if (fs.existsSync(macCandidates[i])) return macCandidates[i];
+        }
+        return "ffmpeg"; // PATH fallback
+      }
+
       var candidates = [
         process.env.LOCALAPPDATA + "\\Microsoft\\WinGet\\Links\\ffmpeg.exe",
         "C:\\ffmpeg\\bin\\ffmpeg.exe",
@@ -667,7 +717,10 @@
       args.push("-i", mediaPath, "-vn", "-ac", "1", "-ar", "16000", "-y", tempWav);
       console.log("[CEP] ffmpeg", ffmpeg, args.join(" "));
       cp.execFile(ffmpeg, args, { maxBuffer: 200 * 1024 * 1024 }, function (err, stdout, stderr) {
-        if (err) return callback(new Error("ffmpeg fail: " + (stderr || err.message).slice(0, 300)));
+        if (err) {
+          var errMsg = stderr ? stderr.trim().split(/\r?\n/).slice(-3).join("\n") : err.message;
+          return callback(new Error("ffmpeg fail:\n" + errMsg + "\nCommand: " + ffmpeg + " " + args.join(" ")));
+        }
         callback(null, tempWav);
       });
     } catch (e) { callback(e); }
@@ -778,7 +831,12 @@
       })
       .then(function (info) {
         console.log("[CEP] getSelectedClipInfo:", info);
-        if (info && info.ok) lastClipInfo = info;
+        if (info && info.ok) {
+          lastClipInfo = info;
+          if (lastClipInfo.mediaPath) lastClipInfo.mediaPath = decodeURIComponent(lastClipInfo.mediaPath);
+          if (lastClipInfo.itemName) lastClipInfo.itemName = decodeURIComponent(lastClipInfo.itemName);
+          if (lastClipInfo.seqName) lastClipInfo.seqName = decodeURIComponent(lastClipInfo.seqName);
+        }
         return checkHealth();
       })
       .then(function (ok) {
@@ -815,7 +873,11 @@
         jobStage.textContent = "Ses cikariliyor (FFmpeg)…";
         extractWav(lastClipInfo.mediaPath, lastClipInfo.inPoint, lastClipInfo.outPoint, function (errW, wavPath) {
           if (errW) {
-            failJob("FFmpeg hata: " + errW.message + "\n\nFFmpeg PATH'te olmali. winget install ffmpeg ile kurabilirsin.");
+            var isMac = typeof process !== "undefined" && process.platform === "darwin";
+            var installHelp = isMac 
+              ? "FFmpeg bulunamadi. Terminal'den 'brew install ffmpeg' ile kurabilirsin." 
+              : "FFmpeg PATH'te olmali. 'winget install ffmpeg' ile kurabilirsin.";
+            failJob("FFmpeg hata: " + errW.message + "\n\n" + installHelp);
             generateBtn.disabled = false;
             return;
           }
@@ -958,9 +1020,8 @@
       var seqStart = (lastClipInfo && lastClipInfo.startTime) ? lastClipInfo.startTime : 0;
       window.FC_LAST_CLIP_SEQ_START = seqStart;
     } catch (e) {}
-    var escaped = srtPath.replace(/\\/g, "\\\\");
     // YENI imza: importAndPlaceSubtitle(srtPath, placementMode, explicitSeconds)
-    var jsxCall = 'importAndPlaceSubtitle("' + escaped + '", "' + currentPlacement + '", 0)';
+    var jsxCall = 'importAndPlaceSubtitle("' + encodeURIComponent(srtPath) + '", "' + currentPlacement + '", 0)';
 
     evalJSX(jsxCall).then(function (r) {
       console.log("[CEP] importAndPlace result:", r);

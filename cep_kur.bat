@@ -57,6 +57,38 @@ if errorlevel 1 (
 )
 echo.
 
+REM FFmpeg kurulum kontrolu
+echo [4/3] FFmpeg kontrol ediliyor...
+set "FFMPEG_OK=0"
+where ffmpeg >nul 2>nul
+if %errorlevel% equ 0 set "FFMPEG_OK=1"
+if exist "%LOCALAPPDATA%\Microsoft\WinGet\Links\ffmpeg.exe" set "FFMPEG_OK=1"
+if exist "C:\ffmpeg\bin\ffmpeg.exe" set "FFMPEG_OK=1"
+if exist "C:\Program Files\ffmpeg\bin\ffmpeg.exe" set "FFMPEG_OK=1"
+
+if "%FFMPEG_OK%"=="0" (
+    echo.
+    echo UYARI: FFmpeg sisteminizde bulunamadi!
+    echo Uzak sunucu (VDS) modu icin yerel FFmpeg kurulumu zorunludur.
+    set "install_ff="
+    set /p install_ff="FFmpeg'i winget ile otomatik kurmak ister misiniz? (E/H): "
+    if /i "%install_ff%"=="E" (
+        echo [!] FFmpeg kuruluyor (winget)...
+        winget install ffmpeg
+        if %errorlevel% equ 0 (
+            echo [+] FFmpeg basariyla kuruldu!
+            echo UYARI: Kurulum bittikten sonra degisikliklerin aktif olmasi icin 
+            echo yeni bir komut istemi veya Premiere acmaniz gerekebilir.
+        ) else (
+            echo [-] HATA: winget ile FFmpeg kurulumu basarisiz oldu.
+            echo Lutfen manuel olarak https://ffmpeg.org/ adresinden kurun.
+        )
+    )
+) else (
+    echo       OK (Sistemde FFmpeg mevcut)
+)
+echo.
+
 echo ===================================================
 echo   KURULUM TAMAM.
 echo.

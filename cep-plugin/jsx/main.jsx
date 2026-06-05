@@ -125,9 +125,9 @@ function getSelectedClipInfo() {
         if (dur < 0) dur = 0;
 
         stage = "12_done";
-        var safeName = itemName.replace(/"/g, "").replace(/\\/g, "");
-        var safePath = mediaPath.replace(/\\/g, "\\\\").replace(/"/g, "");
-        var safeSeq = seqName.replace(/"/g, "").replace(/\\/g, "");
+        var safeName = encodeURIComponent(itemName);
+        var safePath = encodeURIComponent(mediaPath);
+        var safeSeq = encodeURIComponent(seqName);
 
         return '{"ok":true,"stage":"12_done","probe":"v11",' +
             '"seqName":"' + safeSeq + '",' +
@@ -143,8 +143,9 @@ function getSelectedClipInfo() {
     }
 }
 
-function importAndPlaceSubtitle(srtPath, placementMode, explicitSeconds) {
+function importAndPlaceSubtitle(srtPathEncoded, placementMode, explicitSeconds) {
     try {
+        var srtPath = decodeURIComponent(srtPathEncoded);
         if (!srtPath) return '{"ok":false,"error":"srtPath bos"}';
         if (!placementMode) placementMode = "sequence_start";
         if (!app || !app.project) return '{"ok":false,"error":"app yok"}';
@@ -209,8 +210,9 @@ function importAndPlaceSubtitle(srtPath, placementMode, explicitSeconds) {
 }
 
 // PNG sequence'i Premiere'e import et + video track'in en ustune yerlestir
-function importPngSequence(firstPngPath, startSeconds, frameRate) {
+function importPngSequence(firstPngPathEncoded, startSeconds, frameRate) {
     try {
+        var firstPngPath = decodeURIComponent(firstPngPathEncoded);
         if (!firstPngPath) return '{"ok":false,"error":"path bos"}';
         if (!app || !app.project) return '{"ok":false,"error":"app yok"}';
         var proj = app.project;
