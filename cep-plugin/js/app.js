@@ -556,6 +556,11 @@
   var _probeLogged = false;
   function refreshSequenceInfo() {
     evalJSX("getSelectedClipInfo()").then(function (info) {
+      if (info && info.ok) {
+        if (info.itemName) info.itemName = decodeURIComponent(info.itemName);
+        if (info.mediaPath) info.mediaPath = decodeURIComponent(info.mediaPath);
+        if (info.seqName) info.seqName = decodeURIComponent(info.seqName);
+      }
       // V7 probe: ilk gelen probe raporunu console'a tam yaz
       if (info && info.probe && !_probeLogged) {
         console.log("[CEP] V7 PROBE FULL:", info);
@@ -958,9 +963,8 @@
       var seqStart = (lastClipInfo && lastClipInfo.startTime) ? lastClipInfo.startTime : 0;
       window.FC_LAST_CLIP_SEQ_START = seqStart;
     } catch (e) {}
-    var escaped = srtPath.replace(/\\/g, "\\\\");
     // YENI imza: importAndPlaceSubtitle(srtPath, placementMode, explicitSeconds)
-    var jsxCall = 'importAndPlaceSubtitle("' + escaped + '", "' + currentPlacement + '", 0)';
+    var jsxCall = 'importAndPlaceSubtitle("' + encodeURIComponent(srtPath) + '", "' + currentPlacement + '", 0)';
 
     evalJSX(jsxCall).then(function (r) {
       console.log("[CEP] importAndPlace result:", r);

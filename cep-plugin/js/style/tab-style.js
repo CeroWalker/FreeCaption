@@ -949,9 +949,8 @@
           // Tamamlandi
           setExportInfo("✓ " + totalFrames + " PNG üretildi · Premiere'e aktarılıyor…", "ok");
           // ExtendScript ile Premiere'e import
-          var pngPath = firstFile.replace(/\\/g, "\\\\");
           // KAYMA FIX: clipSeqStart + caption start
-          var jsx = 'importPngSequence("' + pngPath + '", ' + pngInsertAt + ', ' + fps + ')';
+          var jsx = 'importPngSequence("' + encodeURIComponent(firstFile) + '", ' + pngInsertAt + ', ' + fps + ')';
           cs.evalScript(jsx, function (jr) {
             console.log("[CEP] importPngSequence:", jr);
             var jp = null;
