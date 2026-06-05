@@ -717,7 +717,10 @@
       args.push("-i", mediaPath, "-vn", "-ac", "1", "-ar", "16000", "-y", tempWav);
       console.log("[CEP] ffmpeg", ffmpeg, args.join(" "));
       cp.execFile(ffmpeg, args, { maxBuffer: 200 * 1024 * 1024 }, function (err, stdout, stderr) {
-        if (err) return callback(new Error("ffmpeg fail: " + (stderr || err.message).slice(0, 300)));
+        if (err) {
+          var errMsg = stderr ? stderr.trim().split(/\r?\n/).slice(-3).join("\n") : err.message;
+          return callback(new Error("ffmpeg fail:\n" + errMsg + "\nCommand: " + ffmpeg + " " + args.join(" ")));
+        }
         callback(null, tempWav);
       });
     } catch (e) { callback(e); }
