@@ -58,7 +58,7 @@ pip install -r "${APP_DIR}/backend/requirements.txt"
 deactivate
 
 echo "==> 5/8 Modeli onceden indir (medium)"
-sudo -u "${APP_USER}" bash -c "cd ${APP_DIR} && source .venv/bin/activate && \
+sudo -u "${APP_USER}" bash -c "cd ${APP_DIR}/backend && source ../.venv/bin/activate && \
     FC_MODE=cpu FC_MODEL=medium python -c 'from transcribe import get_transcriber; t=get_transcriber(); t._load_whisper(); print(\"Model hazir\")'" \
     || echo "  (Uyari: Model on-yukleme atlandi. Ilk istekte indirilecek.)"
 
@@ -75,7 +75,7 @@ cp "${APP_DIR}/deploy/linux/nginx.conf" /etc/nginx/sites-available/freecaption
 ln -sf /etc/nginx/sites-available/freecaption /etc/nginx/sites-enabled/freecaption
 # Default site'i devre disi birak (cakismayi onler)
 rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl reload nginx
+nginx -t && systemctl enable nginx && systemctl restart nginx
 
 echo "==> 8/8 Firewall (UFW)"
 ufw allow 22/tcp >/dev/null || true
