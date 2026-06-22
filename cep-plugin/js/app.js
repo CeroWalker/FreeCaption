@@ -884,7 +884,7 @@
         p = "file://" + p;
       }
     }
-    return p;
+    return encodeURI(p);
   }
 
   function escapeXml(unsafe) {
