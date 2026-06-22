@@ -873,6 +873,43 @@
     }
   }
 
+  function pathToUrl(filePath) {
+    if (!filePath) return "";
+    var p = filePath.replace(/\\/g, "/");
+    if (!/^file:\/\//i.test(p)) {
+      if (/^[a-zA-Z]:/.test(p)) {
+        p = "file:///" + p;
+      } else {
+        if (p.charAt(0) !== "/") p = "/" + p;
+        p = "file://" + p;
+      }
+    }
+    return p;
+  }
+
+  function escapeXml(unsafe) {
+    return unsafe.replace(/[<>&'"]/g, function (c) {
+      switch (c) {
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '&': return '&amp;';
+        case '\'': return '&apos;';
+        case '"': return '&quot;';
+      }
+    });
+  }
+
+  function fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName) {
+    var localFileUrl = pathToUrl(localMediaPath);
+    xmlText = xmlText.replace(/<pathurl>.*?<\/pathurl>/g, '<pathurl>' + escapeXml(localFileUrl) + '</pathurl>');
+    if (tempWavName) {
+      var tempWavNameEscaped = tempWavName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      var re = new RegExp('<name>' + tempWavNameEscaped + '</name>', 'g');
+      xmlText = xmlText.replace(re, '<name>' + escapeXml(localFileName) + '</name>');
+    }
+    return xmlText;
+  }
+
   // ===== Generate =====
   generateBtn.addEventListener("click", function () {
     console.log("[CEP] generateBtn clicked");
@@ -974,6 +1011,12 @@
               fcFetch(finalJob.xml_url)
                 .then(function (rx) { return rx.text(); })
                 .then(function (xmlText) {
+                  var localMediaPath = lastClipInfo.mediaPath;
+                  var localFileName = lastClipInfo.itemName || localMediaPath.split(/[\\/]/).pop();
+                  var tempWavName = finalJob.filename;
+
+                  xmlText = fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName);
+
                   var localXml = saveXmlLocal(xmlText, baseName);
                   if (localXml) {
                     evalJSX('importXml("' + encodeURIComponent(localXml) + '")')
