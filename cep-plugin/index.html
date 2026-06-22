@@ -311,6 +311,18 @@
           <strong>Otomatik timeline'a yerleştir</strong>
         </span>
       </label>
+      <label class="toggle" style="margin-top: 8px;">
+        <input type="checkbox" id="autoCut" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">
+          <strong>Sessizlikleri Temizle (Auto-Cut)</strong>
+        </span>
+      </label>
+
+      <div id="silenceThresholdRow" class="field hidden" style="margin-top: 8px;">
+        <label class="field-label">Sessizlik Eşiği (saniye)</label>
+        <input type="number" id="silenceThreshold" min="0.1" max="5.0" step="0.05" value="0.4" />
+      </div>
     </section>
 
     <!-- Ana CTA (sticky) -->

@@ -518,6 +518,24 @@
     saveSetting("placement", currentPlacement);
   });
 
+  var autoCutChk = $("autoCut");
+  var silenceThresholdInput = $("silenceThreshold");
+  var silenceThresholdRow = $("silenceThresholdRow");
+
+  function toggleSilenceThreshold() {
+    if (autoCutChk.checked) silenceThresholdRow.classList.remove("hidden");
+    else silenceThresholdRow.classList.add("hidden");
+  }
+
+  autoCutChk.addEventListener("change", function () {
+    saveSetting("auto_cut", autoCutChk.checked ? "1" : "0");
+    toggleSilenceThreshold();
+  });
+
+  silenceThresholdInput.addEventListener("change", function () {
+    saveSetting("silence_threshold", silenceThresholdInput.value);
+  });
+
   // Restore preferences
   (function restore() {
     var savedChars = loadSetting("max_chars", null);
@@ -549,6 +567,19 @@
     var savedCustom = loadSetting("custom_dir", null);
     if (savedCustom) customDirInput.value = savedCustom;
     toggleCustomDir();
+
+    var savedAutoCut = loadSetting("auto_cut", null);
+    if (savedAutoCut === "1") {
+      autoCutChk.checked = true;
+    } else if (savedAutoCut === "0") {
+      autoCutChk.checked = false;
+    }
+    toggleSilenceThreshold();
+
+    var savedSilenceThreshold = loadSetting("silence_threshold", null);
+    if (savedSilenceThreshold) {
+      silenceThresholdInput.value = savedSilenceThreshold;
+    }
   })();
 
   languageSel.addEventListener("change", function () { saveSetting("language", languageSel.value); });
@@ -741,6 +772,13 @@
         fd.append("max_chars_per_line", String(maxCharsPerLine));
       }
       fd.append("max_words_per_line", "99");
+      fd.append("auto_cut", autoCutChk.checked ? "true" : "false");
+      fd.append("silence_threshold", String(parseFloat(silenceThresholdInput.value) || 0.4));
+      if (lastClipInfo) {
+        fd.append("fps", String(lastClipInfo.seqFps || 30.0));
+        fd.append("width", String(lastClipInfo.seqWidth || 1920));
+        fd.append("height", String(lastClipInfo.seqHeight || 1080));
+      }
 
       fcFetch("/api/upload", { method: "POST", body: fd })
         .then(function (r) {
@@ -809,6 +847,28 @@
       return fullPath;
     } catch (e) {
       console.error("[CEP] SRT save fail:", e);
+      return null;
+    }
+  }
+
+  function saveXmlLocal(xmlText, baseName) {
+    try {
+      var fs = require("fs");
+      var path = require("path");
+      var os = require("os");
+      var outDir = null;
+      var mode = outputDirMode.value;
+      if (mode === "project" && projectDir) outDir = projectDir;
+      else if (mode === "custom" && customDirInput.value) outDir = customDirInput.value.trim();
+      if (!outDir) outDir = path.join(os.homedir(), "Documents", "FreeCaption");
+      if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+      var stamp = new Date().toTimeString().slice(0,8).replace(/:/g, "");
+      var name = (baseName || "subtitle") + "_" + stamp + ".xml";
+      var fullPath = path.join(outDir, name);
+      fs.writeFileSync(fullPath, xmlText, "utf8");
+      return fullPath;
+    } catch (e) {
+      console.error("[CEP] XML save fail:", e);
       return null;
     }
   }
@@ -908,6 +968,24 @@
             jobStatus.className = "badge done";
             // Timeline'a yerlestir
             if (autoPlaceChk.checked) placeOnTimeline({ srt_path_abs: localSrt });
+
+            // XML'i indir ve yerleştir (Remote Mode)
+            if (autoCutChk.checked && finalJob && finalJob.xml_url) {
+              fcFetch(finalJob.xml_url)
+                .then(function (rx) { return rx.text(); })
+                .then(function (xmlText) {
+                  var localXml = saveXmlLocal(xmlText, baseName);
+                  if (localXml) {
+                    evalJSX('importXml("' + encodeURIComponent(localXml) + '")')
+                      .then(function (rXML) {
+                        console.log("[CEP] importXml result:", rXML);
+                      });
+                  }
+                })
+                .catch(function (exXML) {
+                  console.error("[CEP] XML download error:", exXML);
+                });
+            }
             generateBtn.disabled = false;
           });
         });
@@ -923,7 +1001,12 @@
         language: lang,
         max_words_per_line: 99,
         max_chars_per_line: currentMaxChars,
-        output_dir: outDir
+        output_dir: outDir,
+        auto_cut: autoCutChk.checked,
+        silence_threshold: parseFloat(silenceThresholdInput.value) || 0.4,
+        fps: lastClipInfo.seqFps || 30.0,
+        width: lastClipInfo.seqWidth || 1920,
+        height: lastClipInfo.seqHeight || 1080
       };
 
       console.log("[CEP] LOCAL payload:", payload);
@@ -986,6 +1069,15 @@
           if (j.status === "done") {
             done = true;
             if (autoPlaceChk.checked) placeOnTimeline(j);
+            if (autoCutChk.checked && j.xml_path_abs) {
+              evalJSX('importXml("' + encodeURIComponent(j.xml_path_abs) + '")')
+                .then(function (rXML) {
+                  console.log("[CEP] importXml result:", rXML);
+                })
+                .catch(function (exXML) {
+                  console.error("[CEP] importXml error:", exXML);
+                });
+            }
             generateBtn.disabled = false;
           } else if (j.status === "error") {
             done = true; failJob(j.error || "Bilinmeyen hata"); generateBtn.disabled = false;

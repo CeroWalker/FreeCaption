@@ -5,6 +5,7 @@ Tek tuşla başlar, browser'da açılır. Dosya boyutu / kullanım limiti YOK.
 """
 import os
 import sys
+import torch
 
 # Windows DLL search path patch: NSSM servis context'inde site-packages altindaki
 # native DLL klasorleri (ctranslate2.libs, intel_openmp\bin, torch\lib) otomatik
@@ -71,6 +72,7 @@ class Job:
         self.error: Optional[str] = None
         self.srt_path: Optional[Path] = None
         self.txt_path: Optional[Path] = None
+        self.xml_path: Optional[Path] = None
         self.duration: Optional[float] = None
         self.detected_language: Optional[str] = None
         self.elapsed: float = 0.0
@@ -79,6 +81,11 @@ class Job:
         self.max_words_per_line: Optional[int] = None
         self.max_chars_per_line: Optional[int] = None
         self.output_dir: Optional[str] = None
+        self.auto_cut: bool = False
+        self.silence_threshold: float = 0.4
+        self.fps: float = 30.0
+        self.width: int = 1920
+        self.height: int = 1080
 
     def to_dict(self) -> dict:
         return {
@@ -94,9 +101,13 @@ class Job:
             "elapsed": round(self.elapsed, 1),
             "srt_url": f"/download/{self.id}/srt" if self.srt_path else None,
             "txt_url": f"/download/{self.id}/txt" if self.txt_path else None,
+            "xml_url": f"/download/{self.id}/xml" if self.xml_path else None,
             "srt_path_abs": str(self.srt_path) if self.srt_path else None,
+            "xml_path_abs": str(self.xml_path) if self.xml_path else None,
             "clip_start": self.clip_start,
             "clip_end": self.clip_end,
+            "auto_cut": self.auto_cut,
+            "silence_threshold": self.silence_threshold,
         }
 
 
@@ -110,6 +121,11 @@ class ClipRequest(BaseModel):
     max_chars_per_line: Optional[int] = None
     output_dir: Optional[str] = None        # custom klasor (None=default OUTPUT_DIR)
     placement_time: Optional[float] = None  # SRT timeline yerlesim saniye (None=0)
+    auto_cut: bool = False
+    silence_threshold: float = 0.4
+    fps: float = 30.0
+    width: int = 1920
+    height: int = 1080
 
 
 jobs: Dict[str, Job] = {}
@@ -224,6 +240,40 @@ def run_job(job: Job, media_path: Path, transcriber):
         max_chars=job.max_chars_per_line,
     )
 
+    if job.auto_cut:
+        try:
+            from fcpxml import generate_cut_segments, merge_segments, generate_fcp_xml
+            words = []
+            for seg in result.get("segments", []):
+                for w in seg.get("words", []) or []:
+                    words.append(w)
+            
+            clip_start_offset = job.clip_start if job.clip_start is not None else 0.0
+            cut_segs = generate_cut_segments(
+                words,
+                silence_threshold=job.silence_threshold,
+                clip_start=clip_start_offset
+            )
+            
+            total_dur = job.duration if job.duration is not None else 99999.0
+            merged_segs = merge_segments(cut_segs, padding=0.05, max_duration=total_dur)
+            
+            xml_content = generate_fcp_xml(
+                media_path=media_path,
+                segments=merged_segs,
+                fps=job.fps,
+                width=job.width,
+                height=job.height,
+                total_media_duration=total_dur
+            )
+            
+            xml_path = out_dir / f"{base_name}_{char_tag}_{stamp}.xml"
+            xml_path.write_text(xml_content, encoding="utf-8")
+            job.xml_path = xml_path
+            print(f"[CLIP] Auto-Cut XML generated: {xml_path}")
+        except Exception as ex:
+            print(f"[CLIP] XML üretilemedi: {ex}")
+
     job.srt_path = srt_path
     job.txt_path = txt_path
     job.stage = "Hazır"
@@ -301,7 +351,6 @@ async def upload_size_middleware(request: Request, call_next):
 
 @app.get("/api/health")
 async def health():
-    import torch
     return {
         "ok": True,
         "gpu": torch.cuda.is_available(),
@@ -313,7 +362,6 @@ async def health():
 @app.post("/api/unload")
 async def unload_models():
     """Whisper modellerini VRAM/RAM'den bosalt. Bir sonraki transkripsiyonda yeniden yuklenir."""
-    import torch
     try:
         # transcribe.py icindeki global transcriber'i bosalt
         from transcribe import _transcriber
@@ -354,6 +402,11 @@ async def upload(
     language: Optional[str] = Form(None),
     max_chars_per_line: Optional[int] = Form(None),
     max_words_per_line: Optional[int] = Form(None),
+    auto_cut: bool = Form(False),
+    silence_threshold: float = Form(0.4),
+    fps: float = Form(30.0),
+    width: int = Form(1920),
+    height: int = Form(1080),
 ):
     job_id = uuid.uuid4().hex[:12]
     safe_name = Path(file.filename or f"upload_{job_id}").name
@@ -370,6 +423,11 @@ async def upload(
         language = None
 
     job = Job(job_id=job_id, filename=safe_name, language=language)
+    job.auto_cut = auto_cut
+    job.silence_threshold = silence_threshold
+    job.fps = fps
+    job.width = width
+    job.height = height
     if max_chars_per_line and max_chars_per_line > 0:
         job.max_chars_per_line = int(max_chars_per_line)
     if max_words_per_line and max_words_per_line > 0:
@@ -396,6 +454,11 @@ async def submit_clip(req: ClipRequest):
     job_id = uuid.uuid4().hex[:12]
     language = req.language if req.language not in ("auto", "", None) else None
     job = Job(job_id=job_id, filename=media_path.name, language=language)
+    job.auto_cut = req.auto_cut
+    job.silence_threshold = req.silence_threshold
+    job.fps = req.fps
+    job.width = req.width
+    job.height = req.height
     if req.out_point > req.in_point > 0 or (req.out_point > 0 and req.in_point >= 0):
         job.clip_start = float(req.in_point)
         job.clip_end = float(req.out_point)
@@ -453,6 +516,8 @@ async def download(job_id: str, kind: str):
         return FileResponse(job.srt_path, filename=job.srt_path.name, media_type="application/x-subrip")
     if kind == "txt" and job.txt_path:
         return FileResponse(job.txt_path, filename=job.txt_path.name, media_type="text/plain")
+    if kind == "xml" and job.xml_path:
+        return FileResponse(job.xml_path, filename=job.xml_path.name, media_type="application/xml")
     raise HTTPException(404, "Dosya yok")
 
 

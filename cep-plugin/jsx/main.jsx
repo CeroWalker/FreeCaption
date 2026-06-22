@@ -367,3 +367,16 @@ function clearCaptionTracks() {
         return '{"ok":false,"error":"' + String(e).replace(/"/g, "") + '"}';
     }
 }
+
+function importXml(xmlPathEncoded) {
+    try {
+        var xmlPath = decodeURIComponent(xmlPathEncoded);
+        if (!xmlPath) return '{"ok":false,"error":"xmlPath bos"}';
+        if (!app || !app.project) return '{"ok":false,"error":"app veya proje yok"}';
+        var importOk = app.project.importFiles([xmlPath], true, app.project.rootItem, false);
+        if (!importOk) return '{"ok":false,"error":"importFiles false"}';
+        return '{"ok":true}';
+    } catch (e) {
+        return '{"ok":false,"error":"' + String(e).replace(/"/g, "") + '"}';
+    }
+}
