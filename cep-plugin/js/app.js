@@ -910,6 +910,36 @@
     return xmlText;
   }
 
+  function importAndPlaceXml(job) {
+    if (!job || !job.xml_url) return;
+    var baseName = lastClipInfo.itemName
+      ? lastClipInfo.itemName.replace(/\.[^.]+$/, "")
+      : "subtitle";
+      
+    fcFetch(job.xml_url)
+      .then(function (rx) { return rx.text(); })
+      .then(function (xmlText) {
+        var localMediaPath = lastClipInfo.mediaPath;
+        var localFileName = lastClipInfo.itemName || localMediaPath.split(/[\\/]/).pop();
+        
+        // Sunucu gecici ses dosya ismi: job.id + "_" + job.filename
+        var tempWavName = job.id + "_" + job.filename;
+
+        xmlText = fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName);
+
+        var localXml = saveXmlLocal(xmlText, baseName);
+        if (localXml) {
+          evalJSX('importXml("' + encodeURIComponent(localXml) + '")')
+            .then(function (rXML) {
+              console.log("[CEP] importXml result:", rXML);
+            });
+        }
+      })
+      .catch(function (exXML) {
+        console.error("[CEP] XML download/import error:", exXML);
+      });
+  }
+
   // ===== Generate =====
   generateBtn.addEventListener("click", function () {
     console.log("[CEP] generateBtn clicked");
@@ -1007,28 +1037,7 @@
             if (autoPlaceChk.checked) placeOnTimeline({ srt_path_abs: localSrt });
 
             // XML'i indir ve yerleştir (Remote Mode)
-            if (autoCutChk.checked && finalJob && finalJob.xml_url) {
-              fcFetch(finalJob.xml_url)
-                .then(function (rx) { return rx.text(); })
-                .then(function (xmlText) {
-                  var localMediaPath = lastClipInfo.mediaPath;
-                  var localFileName = lastClipInfo.itemName || localMediaPath.split(/[\\/]/).pop();
-                  var tempWavName = finalJob.filename;
-
-                  xmlText = fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName);
-
-                  var localXml = saveXmlLocal(xmlText, baseName);
-                  if (localXml) {
-                    evalJSX('importXml("' + encodeURIComponent(localXml) + '")')
-                      .then(function (rXML) {
-                        console.log("[CEP] importXml result:", rXML);
-                      });
-                  }
-                })
-                .catch(function (exXML) {
-                  console.error("[CEP] XML download error:", exXML);
-                });
-            }
+            if (autoCutChk.checked) importAndPlaceXml(finalJob);
             generateBtn.disabled = false;
           });
         });
@@ -1112,15 +1121,7 @@
           if (j.status === "done") {
             done = true;
             if (autoPlaceChk.checked) placeOnTimeline(j);
-            if (autoCutChk.checked && j.xml_path_abs) {
-              evalJSX('importXml("' + encodeURIComponent(j.xml_path_abs) + '")')
-                .then(function (rXML) {
-                  console.log("[CEP] importXml result:", rXML);
-                })
-                .catch(function (exXML) {
-                  console.error("[CEP] importXml error:", exXML);
-                });
-            }
+            if (autoCutChk.checked) importAndPlaceXml(j);
             generateBtn.disabled = false;
           } else if (j.status === "error") {
             done = true; failJob(j.error || "Bilinmeyen hata"); generateBtn.disabled = false;
