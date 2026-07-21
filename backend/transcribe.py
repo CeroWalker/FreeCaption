@@ -124,6 +124,8 @@ class Transcriber:
         language: Optional[str] = None,
         progress: Optional[Callable[[str, float], None]] = None,
     ) -> dict:
+        # Otomatik tespitte Türkçe konuşmaları Rusça/İngilizce algılayan Whisper rezaletini çözmek için dili Türkçe'ye sabitliyoruz.
+        language = "tr"
         def report(stage: str, pct: float):
             if progress:
                 progress(stage, pct)

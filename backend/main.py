@@ -419,8 +419,8 @@ async def upload(
                 break
             await f.write(chunk)
 
-    if language in ("auto", "", None):
-        language = None
+    # Dili doğrudan Türkçe'ye sabitliyoruz
+    language = "tr"
 
     job = Job(job_id=job_id, filename=safe_name, language=language)
     job.auto_cut = auto_cut
@@ -452,7 +452,7 @@ async def submit_clip(req: ClipRequest):
         raise HTTPException(400, "Dosya değil")
 
     job_id = uuid.uuid4().hex[:12]
-    language = req.language if req.language not in ("auto", "", None) else None
+    language = "tr"
     job = Job(job_id=job_id, filename=media_path.name, language=language)
     job.auto_cut = req.auto_cut
     job.silence_threshold = req.silence_threshold
