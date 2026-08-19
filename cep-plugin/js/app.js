@@ -4,7 +4,73 @@
 (function () {
   "use strict";
 
-  // ===== API CONFIG (lokal varsayilan, VDS icin Ayarlar'dan degisir) =====
+  // ===== STORAGE PERSISTENCE (Node fs + localStorage fallback for Mac/Win) =====
+  function getConfigFile() {
+    try {
+      if (typeof require === "function") {
+        var os = require("os");
+        var path = require("path");
+        var home = os.homedir ? os.homedir() : (process.env.HOME || process.env.USERPROFILE);
+        if (home) return path.join(home, ".freecaption_config.json");
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function readDiskConfig() {
+    try {
+      var fp = getConfigFile();
+      if (fp && require("fs").existsSync(fp)) {
+        var data = require("fs").readFileSync(fp, "utf8");
+        return JSON.parse(data) || {};
+      }
+    } catch (e) {}
+    return {};
+  }
+
+  function writeDiskConfig(cfg) {
+    try {
+      var fp = getConfigFile();
+      if (fp) {
+        require("fs").writeFileSync(fp, JSON.stringify(cfg, null, 2), "utf8");
+      }
+    } catch (e) {}
+  }
+
+  function getStorageItem(key) {
+    try {
+      var val = localStorage.getItem(key);
+      if (val !== null && val !== undefined && val !== "") return val;
+    } catch (e) {}
+    var disk = readDiskConfig();
+    if (disk && disk[key] !== undefined && disk[key] !== null) {
+      try { localStorage.setItem(key, disk[key]); } catch (e) {}
+      return disk[key];
+    }
+    return null;
+  }
+
+  function setStorageItem(key, val) {
+    try { localStorage.setItem(key, val); } catch (e) {}
+    var disk = readDiskConfig();
+    disk[key] = val;
+    writeDiskConfig(disk);
+  }
+
+  function removeStorageItem(key) {
+    try { localStorage.removeItem(key); } catch (e) {}
+    var disk = readDiskConfig();
+    if (disk && disk[key] !== undefined) {
+      delete disk[key];
+      writeDiskConfig(disk);
+    }
+  }
+
+  window.FC_getStorageItem = getStorageItem;
+  window.FC_setStorageItem = setStorageItem;
+  window.FC_removeStorageItem = removeStorageItem;
+
+  // ===== API CONFIG =====
   function normalizeUrl(u) {
     if (!u) return "";
     u = u.trim().replace(/\/$/, "");
@@ -15,18 +81,17 @@
   }
   function loadApi() {
     try {
-      var url = localStorage.getItem("fc_api_url");
+      var url = getStorageItem("fc_api_url");
       if (url && url.length > 0) {
         var n = normalizeUrl(url);
-        // Normalize edilmis hali localStorage'a geri yaz (eski kayitlari duzelt)
-        if (n !== url) { try { localStorage.setItem("fc_api_url", n); } catch (e) {} }
+        if (n !== url) { setStorageItem("fc_api_url", n); }
         return n;
       }
     } catch (e) {}
     return "http://127.0.0.1:7860";
   }
   function loadApiKey() {
-    try { return localStorage.getItem("fc_api_key") || ""; } catch (e) { return ""; }
+    try { return getStorageItem("fc_api_key") || ""; } catch (e) { return ""; }
   }
   var API = loadApi();
   var API_KEY = loadApiKey();
@@ -99,11 +164,11 @@
 
   // ===== Settings persistence =====
   function loadSetting(key, fallback) {
-    try { var v = localStorage.getItem("fc_" + key); return v === null ? fallback : v; }
+    try { var v = getStorageItem("fc_" + key); return v === null ? fallback : v; }
     catch (e) { return fallback; }
   }
   function saveSetting(key, val) {
-    try { localStorage.setItem("fc_" + key, val); } catch (e) {}
+    setStorageItem("fc_" + key, val);
   }
 
   // ===== External links =====
@@ -152,12 +217,12 @@
       btn.classList.add("is-active");
       var panel = document.getElementById("tab-" + target);
       if (panel) panel.classList.add("is-active");
-      try { localStorage.setItem("fc_active_tab", target); } catch (e) {}
+      setStorageItem("fc_active_tab", target);
     });
   });
   // Son seçili tab'ı geri yükle
   try {
-    var savedTab = localStorage.getItem("fc_active_tab");
+    var savedTab = getStorageItem("fc_active_tab");
     if (savedTab) {
       var btn = document.querySelector('.tab-btn[data-tab="' + savedTab + '"]');
       if (btn) btn.click();
@@ -185,7 +250,7 @@
     setServerStatus("Başlatılıyor…", "busy");
     // Lokal sunucu yolu kullanıcı tarafından ayarlanabilir (⚙ Sunucu Ayarları → Lokal mod)
     // VDS modunda bu buton kullanılmaz; URL uzak sunucuya işaret eder.
-    var batPath = localStorage.getItem("fc_local_start_bat") || "";
+    var batPath = getStorageItem("fc_local_start_bat") || "";
     if (!batPath) {
       setServerStatus("Lokal sunucu yolu ayarlanmamış. VDS kullanılıyorsa bu buton gereksiz.", "err");
       return;
@@ -458,10 +523,10 @@
       if (newUrl === null) return; // iptal
       newUrl = normalizeUrl(newUrl);
       if (!newUrl) {
-        try { localStorage.removeItem("fc_api_url"); } catch (e) {}
+        removeStorageItem("fc_api_url");
         API = "http://127.0.0.1:7860";
       } else {
-        try { localStorage.setItem("fc_api_url", newUrl); } catch (e) {}
+        setStorageItem("fc_api_url", newUrl);
         API = newUrl;
       }
       window.FC_API = API;
@@ -473,8 +538,8 @@
       if (newKey !== null) {
         newKey = newKey.trim();
         try {
-          if (newKey) localStorage.setItem("fc_api_key", newKey);
-          else localStorage.removeItem("fc_api_key");
+          if (newKey) setStorageItem("fc_api_key", newKey);
+          else removeStorageItem("fc_api_key");
         } catch (e) {}
         API_KEY = newKey;
         window.FC_API_KEY = API_KEY;

@@ -4,6 +4,15 @@
 (function () {
   "use strict";
 
+  function getItem(k) {
+    if (typeof window.FC_getStorageItem === "function") return window.FC_getStorageItem(k);
+    try { return localStorage.getItem(k); } catch (e) { return null; }
+  }
+  function setItem(k, v) {
+    if (typeof window.FC_setStorageItem === "function") return window.FC_setStorageItem(k, v);
+    try { localStorage.setItem(k, v); } catch (e) {}
+  }
+
   var $ = function (id) { return document.getElementById(id); };
   var cs = new CSInterface();
 
@@ -32,7 +41,7 @@
 
     // localStorage'tan aspect tercihi
     try {
-      var savedAsp = localStorage.getItem("fc_aspect");
+      var savedAsp = getItem("fc_aspect");
       if (savedAsp === "16:9" || savedAsp === "9:16") {
         aspectMode = savedAsp;
       }
@@ -77,7 +86,7 @@
         applyCanvasSize();
         // Renderer'i yeni boyuta gore yenile
         renderer = new window.FC_CaptionRenderer(canvasCtx, canvas.width, canvas.height);
-        try { localStorage.setItem("fc_aspect", aspectMode); } catch (e) {}
+        setItem("fc_aspect", aspectMode);
         drawPreview();
       });
     });
@@ -160,8 +169,8 @@
   function populateSystemFonts() {
     // 0) localStorage cache (24 saat) - aninda combobox'a yuklenir
     try {
-      var cached = localStorage.getItem("fc_system_fonts");
-      var cachedAt = parseInt(localStorage.getItem("fc_system_fonts_at") || "0", 10);
+      var cached = getItem("fc_system_fonts");
+      var cachedAt = parseInt(getItem("fc_system_fonts_at") || "0", 10);
       if (cached && (Date.now() - cachedAt) < 24 * 60 * 60 * 1000) {
         var names = JSON.parse(cached);
         if (names.length > 10) {
@@ -262,10 +271,8 @@
           }
           names.sort(function (a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
           fillFontList(null, names);
-          try {
-            localStorage.setItem("fc_system_fonts", JSON.stringify(names));
-            localStorage.setItem("fc_system_fonts_at", String(Date.now()));
-          } catch (eS) {}
+          setItem("fc_system_fonts", JSON.stringify(names));
+          setItem("fc_system_fonts_at", String(Date.now()));
           console.log("[CEP] " + names.length + " sistem fontu yuklendi (PowerShell)");
         });
     } catch (e) {
@@ -283,10 +290,8 @@
             return a.toLowerCase().localeCompare(b.toLowerCase());
           });
           fillFontList(null, names);
-          try {
-            localStorage.setItem("fc_system_fonts", JSON.stringify(names));
-            localStorage.setItem("fc_system_fonts_at", String(Date.now()));
-          } catch (eS) {}
+          setItem("fc_system_fonts", JSON.stringify(names));
+          setItem("fc_system_fonts_at", String(Date.now()));
           console.log("[CEP] " + names.length + " font (queryLocalFonts)");
         }).catch(function () {});
       } else {
@@ -370,9 +375,7 @@
     function commitFont(name) {
       input.value = name;
       style.fontFamily = name;
-      try {
-        localStorage.setItem("fc_last_font", name);
-      } catch (e) {}
+      setItem("fc_last_font", name);
       drawPreview();
     }
 
@@ -452,7 +455,7 @@
 
     // Son seçilen font'u geri yükle
     try {
-      var lastFont = localStorage.getItem("fc_last_font");
+      var lastFont = getItem("fc_last_font");
       if (lastFont && lastFont.length > 0) {
         input.value = lastFont;
         style.fontFamily = lastFont;
@@ -465,7 +468,7 @@
     if (!sel) return;
     // Kaydedilmis tercihi yukle (yoksa default 25 — Premiere'in cogu default'u)
     try {
-      var saved = localStorage.getItem("fc_export_fps");
+      var saved = getItem("fc_export_fps");
       if (saved) {
         // Option mevcut mu kontrol
         var opts = sel.options;
@@ -475,7 +478,7 @@
       }
     } catch (e) {}
     sel.addEventListener("change", function () {
-      try { localStorage.setItem("fc_export_fps", sel.value); } catch (e) {}
+      setItem("fc_export_fps", sel.value);
     });
   }
 
