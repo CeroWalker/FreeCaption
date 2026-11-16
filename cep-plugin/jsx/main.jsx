@@ -100,7 +100,10 @@ function getSelectedClipInfo() {
         }
 
         stage = "7_clipsLoop";
-        var clips = [];
+        var rawClips = [];
+        var videoItems = [];
+        var audioItems = [];
+
         for (var s = 0; s < selLen; s++) {
             var curTi = sel[s];
             if (!curTi) continue;
@@ -124,21 +127,250 @@ function getSelectedClipInfo() {
             var cDur = cEn - cSt;
             if (cDur < 0) cDur = 0;
 
-            clips.push({
+            var mType = "";
+            try {
+                if (curTi.mediaType) {
+                    var rmt = String(curTi.mediaType).toUpperCase();
+                    if (rmt.indexOf("VID") !== -1) mType = "VIDEO";
+                    else if (rmt.indexOf("AUD") !== -1) mType = "AUDIO";
+                }
+            } catch (eM) {}
+            if (!mType) {
+                var ext = "";
+                var dot = cPath.lastIndexOf(".");
+                if (dot !== -1) ext = cPath.substring(dot).toLowerCase();
+                if (ext === ".mp4" || ext === ".mov" || ext === ".mkv" || ext === ".avi" || ext === ".m4v" || ext === ".webm" || ext === ".flv" || ext === ".wmv" || ext === ".mpg" || ext === ".mpeg" || ext === ".m2ts" || ext === ".ts" || ext === ".mts" || ext === ".r3d" || ext === ".mxf") {
+                    mType = "VIDEO";
+                } else if (ext === ".wav" || ext === ".mp3" || ext === ".m4a" || ext === ".aac" || ext === ".flac" || ext === ".aif" || ext === ".aiff" || ext === ".ogg" || ext === ".wma") {
+                    mType = "AUDIO";
+                } else {
+                    mType = "VIDEO";
+                }
+            }
+
+            var itemObj = {
+                mediaType: mType,
                 itemName: cName,
                 mediaPath: cPath,
                 inPoint: cIn,
                 outPoint: cOut,
                 startTime: cSt,
                 duration: cDur
-            });
+            };
+            rawClips.push(itemObj);
+            if (mType === "VIDEO") {
+                videoItems.push(itemObj);
+            } else {
+                audioItems.push(itemObj);
+            }
         }
 
-        if (clips.length === 0) {
+        if (rawClips.length === 0) {
             return '{"ok":false,"stage":"7_emptyClips","error":"gecerli klip bulunamadi",' +
                 '"seqName":"' + seqName.replace(/"/g, "") + '","selLen":' + selLen + ',' +
                 '"count":0,"clips":[],' +
                 '"seqFps":' + seqFps + ',"seqWidth":' + seqWidth + ',"seqHeight":' + seqHeight + '}';
+        }
+
+        var hasVideo = false;
+        var vPath = "";
+        var vName = "";
+        var vIn = 0;
+        var vOut = 0;
+
+        var hasAudio = false;
+        var aPath = "";
+        var aName = "";
+        var aIn = 0;
+        var aOut = 0;
+
+        if (videoItems.length > 0 && audioItems.length > 0) {
+            // Hem Video hem Audio TrackItem secili (V1 + A1)
+            hasVideo = true;
+            vPath = videoItems[0].mediaPath;
+            vName = videoItems[0].itemName;
+            vIn = videoItems[0].inPoint;
+            vOut = videoItems[0].outPoint;
+
+            hasAudio = true;
+            aPath = audioItems[0].mediaPath;
+            aName = audioItems[0].itemName;
+            aIn = audioItems[0].inPoint;
+            aOut = audioItems[0].outPoint;
+        } else if (videoItems.length > 0) {
+            // Sadece Video secili (veya gomulu sesli video klibi)
+            hasVideo = true;
+            vPath = videoItems[0].mediaPath;
+            vName = videoItems[0].itemName;
+            vIn = videoItems[0].inPoint;
+            vOut = videoItems[0].outPoint;
+
+            hasAudio = true;
+            aPath = vPath;
+            aName = vName;
+            aIn = vIn;
+            aOut = vOut;
+        } else if (audioItems.length > 0) {
+            // Sadece Audio secili
+            hasVideo = false;
+            vPath = "";
+            vName = "";
+            vIn = 0;
+            vOut = 0;
+
+            hasAudio = true;
+            aPath = audioItems[0].mediaPath;
+            aName = audioItems[0].itemName;
+            aIn = audioItems[0].inPoint;
+            aOut = audioItems[0].outPoint;
+        }
+
+        var clips = [];
+        if (videoItems.length === 1 && audioItems.length === 1) {
+            // Tek bir klip hem goruntu hem ses olarak secilmis -> TEK klip olarak birlestir
+            clips.push({
+                itemName: vName || aName,
+                mediaPath: aPath || vPath,
+                inPoint: aIn,
+                outPoint: aOut,
+                startTime: audioItems[0].startTime,
+                duration: audioItems[0].duration,
+                hasVideo: true,
+                videoPath: vPath,
+                videoName: vName,
+                videoIn: vIn,
+                videoOut: vOut,
+                hasAudio: true,
+                audioPath: aPath,
+                audioName: aName,
+                audioIn: aIn,
+                audioOut: aOut
+            });
+        } else if (videoItems.length > 0 && audioItems.length > 0) {
+            // Coklu klip secimi (Video + Audio eslesmesi dene)
+            var usedAudio = {};
+            for (var vi = 0; vi < videoItems.length; vi++) {
+                var vClip = videoItems[vi];
+                var matchedA = null;
+                var matchedAIdx = -1;
+                for (var ai = 0; ai < audioItems.length; ai++) {
+                    if (!usedAudio[ai]) {
+                        var aClip = audioItems[ai];
+                        if (Math.abs(vClip.startTime - aClip.startTime) < 0.1 || vClip.mediaPath === aClip.mediaPath) {
+                            matchedA = aClip;
+                            matchedAIdx = ai;
+                            break;
+                        }
+                    }
+                }
+                if (matchedA) {
+                    usedAudio[matchedAIdx] = true;
+                    clips.push({
+                        itemName: vClip.itemName || matchedA.itemName,
+                        mediaPath: matchedA.mediaPath,
+                        inPoint: matchedA.inPoint,
+                        outPoint: matchedA.outPoint,
+                        startTime: vClip.startTime,
+                        duration: vClip.duration,
+                        hasVideo: true,
+                        videoPath: vClip.mediaPath,
+                        videoName: vClip.itemName,
+                        videoIn: vClip.inPoint,
+                        videoOut: vClip.outPoint,
+                        hasAudio: true,
+                        audioPath: matchedA.mediaPath,
+                        audioName: matchedA.itemName,
+                        audioIn: matchedA.inPoint,
+                        audioOut: matchedA.outPoint
+                    });
+                } else {
+                    clips.push({
+                        itemName: vClip.itemName,
+                        mediaPath: vClip.mediaPath,
+                        inPoint: vClip.inPoint,
+                        outPoint: vClip.outPoint,
+                        startTime: vClip.startTime,
+                        duration: vClip.duration,
+                        hasVideo: true,
+                        videoPath: vClip.mediaPath,
+                        videoName: vClip.itemName,
+                        videoIn: vClip.inPoint,
+                        videoOut: vClip.outPoint,
+                        hasAudio: true,
+                        audioPath: vClip.mediaPath,
+                        audioName: vClip.itemName,
+                        audioIn: vClip.inPoint,
+                        audioOut: vClip.outPoint
+                    });
+                }
+            }
+            for (var remA = 0; remA < audioItems.length; remA++) {
+                if (!usedAudio[remA]) {
+                    var remClip = audioItems[remA];
+                    clips.push({
+                        itemName: remClip.itemName,
+                        mediaPath: remClip.mediaPath,
+                        inPoint: remClip.inPoint,
+                        outPoint: remClip.outPoint,
+                        startTime: remClip.startTime,
+                        duration: remClip.duration,
+                        hasVideo: false,
+                        videoPath: "",
+                        videoName: "",
+                        videoIn: 0,
+                        videoOut: 0,
+                        hasAudio: true,
+                        audioPath: remClip.mediaPath,
+                        audioName: remClip.itemName,
+                        audioIn: remClip.inPoint,
+                        audioOut: remClip.outPoint
+                    });
+                }
+            }
+        } else if (videoItems.length > 0) {
+            for (var vi2 = 0; vi2 < videoItems.length; vi2++) {
+                var vC = videoItems[vi2];
+                clips.push({
+                    itemName: vC.itemName,
+                    mediaPath: vC.mediaPath,
+                    inPoint: vC.inPoint,
+                    outPoint: vC.outPoint,
+                    startTime: vC.startTime,
+                    duration: vC.duration,
+                    hasVideo: true,
+                    videoPath: vC.mediaPath,
+                    videoName: vC.itemName,
+                    videoIn: vC.inPoint,
+                    videoOut: vC.outPoint,
+                    hasAudio: true,
+                    audioPath: vC.mediaPath,
+                    audioName: vC.itemName,
+                    audioIn: vC.inPoint,
+                    audioOut: vC.outPoint
+                });
+            }
+        } else if (audioItems.length > 0) {
+            for (var ai2 = 0; ai2 < audioItems.length; ai2++) {
+                var aC = audioItems[ai2];
+                clips.push({
+                    itemName: aC.itemName,
+                    mediaPath: aC.mediaPath,
+                    inPoint: aC.inPoint,
+                    outPoint: aC.outPoint,
+                    startTime: aC.startTime,
+                    duration: aC.duration,
+                    hasVideo: false,
+                    videoPath: "",
+                    videoName: "",
+                    videoIn: 0,
+                    videoOut: 0,
+                    hasAudio: true,
+                    audioPath: aC.mediaPath,
+                    audioName: aC.itemName,
+                    audioIn: aC.inPoint,
+                    audioOut: aC.outPoint
+                });
+            }
         }
 
         var firstClip = clips[0];
@@ -152,7 +384,15 @@ function getSelectedClipInfo() {
             clipsJsonArr.push('{"itemName":"' + encodeURIComponent(cObj.itemName) + '",' +
                 '"mediaPath":"' + encodeURIComponent(cObj.mediaPath) + '",' +
                 '"inPoint":' + cObj.inPoint + ',"outPoint":' + cObj.outPoint + ',' +
-                '"startTime":' + cObj.startTime + ',"duration":' + cObj.duration + '}');
+                '"startTime":' + cObj.startTime + ',"duration":' + cObj.duration + ',' +
+                '"hasVideo":' + (cObj.hasVideo ? "true" : "false") + ',' +
+                '"videoPath":"' + encodeURIComponent(cObj.videoPath || "") + '",' +
+                '"videoName":"' + encodeURIComponent(cObj.videoName || "") + '",' +
+                '"videoIn":' + (cObj.videoIn || 0) + ',"videoOut":' + (cObj.videoOut || 0) + ',' +
+                '"hasAudio":' + (cObj.hasAudio ? "true" : "false") + ',' +
+                '"audioPath":"' + encodeURIComponent(cObj.audioPath || "") + '",' +
+                '"audioName":"' + encodeURIComponent(cObj.audioName || "") + '",' +
+                '"audioIn":' + (cObj.audioIn || 0) + ',"audioOut":' + (cObj.audioOut || 0) + '}');
         }
         var clipsJsonStr = '[' + clipsJsonArr.join(',') + ']';
 
@@ -166,6 +406,14 @@ function getSelectedClipInfo() {
             '"mediaPath":"' + safePath + '",' +
             '"inPoint":' + firstClip.inPoint + ',"outPoint":' + firstClip.outPoint + ',' +
             '"startTime":' + firstClip.startTime + ',"duration":' + firstClip.duration + ',' +
+            '"hasVideo":' + (hasVideo ? "true" : "false") + ',' +
+            '"videoPath":"' + encodeURIComponent(vPath) + '",' +
+            '"videoName":"' + encodeURIComponent(vName) + '",' +
+            '"videoIn":' + vIn + ',"videoOut":' + vOut + ',' +
+            '"hasAudio":' + (hasAudio ? "true" : "false") + ',' +
+            '"audioPath":"' + encodeURIComponent(aPath) + '",' +
+            '"audioName":"' + encodeURIComponent(aName) + '",' +
+            '"audioIn":' + aIn + ',"audioOut":' + aOut + ',' +
             '"seqFps":' + seqFps + ',"seqWidth":' + seqWidth + ',"seqHeight":' + seqHeight + '}';
     } catch (e) {
         return '{"ok":false,"stage":"' + stage + '","error":"OUTER","msg":"' +
@@ -451,8 +699,9 @@ function importXml(xmlPathEncoded) {
         if (!xmlPath) return '{"ok":false,"error":"xmlPath bos"}';
         if (!app || !app.project) return '{"ok":false,"error":"app veya proje yok"}';
 
+        var proj = app.project;
         var oldSeqIDs = {};
-        var seqs = app.project.sequences;
+        var seqs = proj.sequences;
         var numSeqs = seqs ? seqs.numSequences : 0;
         for (var i = 0; i < numSeqs; i++) {
             var s = seqs[i];
@@ -462,11 +711,14 @@ function importXml(xmlPathEncoded) {
             }
         }
 
-        var importOk = app.project.importFiles([xmlPath], true, app.project.rootItem, false);
+        var rootBin = proj.rootItem;
+        var importOk = proj.importFiles([xmlPath], true, rootBin, false);
         if (!importOk) return '{"ok":false,"error":"importFiles false"}';
 
         var newSeq = null;
-        var seqsAfter = app.project.sequences;
+
+        // 1. Tarama: proj.sequences uzerinden yeni eklenen sekansi bul
+        var seqsAfter = proj.sequences;
         var numSeqsAfter = seqsAfter ? seqsAfter.numSequences : 0;
         for (var j = 0; j < numSeqsAfter; j++) {
             var sa = seqsAfter[j];
@@ -479,22 +731,51 @@ function importXml(xmlPathEncoded) {
             }
         }
 
+        // 2. Tarama: rootItem.children uzerinden isSequence() olan ogeleri tara
+        if (!newSeq && rootBin && rootBin.children) {
+            var curChildCount = rootBin.children.numItems;
+            for (var c = curChildCount - 1; c >= 0; c--) {
+                var item = rootBin.children[c];
+                if (item) {
+                    var isSeq = false;
+                    try {
+                        if (typeof item.isSequence === "function") isSeq = item.isSequence();
+                    } catch (eIsSeq) {}
+                    if (isSeq) {
+                        var iName = item.name || "";
+                        for (var k = 0; k < numSeqsAfter; k++) {
+                            var candSeq = seqsAfter[k];
+                            if (candSeq && candSeq.name === iName) {
+                                newSeq = candSeq;
+                                break;
+                            }
+                        }
+                        if (newSeq) break;
+                    }
+                }
+            }
+        }
+
+        // Fallback: seqsAfter son eleman
         if (!newSeq && numSeqsAfter > numSeqs) {
             newSeq = seqsAfter[numSeqsAfter - 1];
         }
 
+        var opened = false;
         if (newSeq) {
             try {
-                app.project.activeSequence = newSeq;
-            } catch (eAct) {}
-            try {
-                if (typeof app.project.openSequence === "function" && newSeq.sequenceID) {
-                    app.project.openSequence(newSeq.sequenceID);
+                if (typeof proj.openSequence === "function" && newSeq.sequenceID) {
+                    proj.openSequence(newSeq.sequenceID);
+                    opened = true;
                 }
             } catch (eOpen) {}
+            try {
+                proj.activeSequence = newSeq;
+                opened = true;
+            } catch (eAct) {}
         }
 
-        return '{"ok":true,"sequenceOpened":' + (newSeq ? "true" : "false") + '}';
+        return '{"ok":true,"sequenceOpened":' + (opened ? "true" : "false") + ',"seqName":"' + (newSeq && newSeq.name ? encodeURIComponent(newSeq.name) : "") + '"}';
     } catch (e) {
         return '{"ok":false,"error":"' + String(e).replace(/"/g, "") + '"}';
     }

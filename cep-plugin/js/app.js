@@ -688,10 +688,18 @@
         if (info.itemName) info.itemName = decodeURIComponent(info.itemName);
         if (info.mediaPath) info.mediaPath = decodeURIComponent(info.mediaPath);
         if (info.seqName) info.seqName = decodeURIComponent(info.seqName);
+        if (info.videoPath) info.videoPath = decodeURIComponent(info.videoPath);
+        if (info.videoName) info.videoName = decodeURIComponent(info.videoName);
+        if (info.audioPath) info.audioPath = decodeURIComponent(info.audioPath);
+        if (info.audioName) info.audioName = decodeURIComponent(info.audioName);
         if (info.clips && info.clips.length) {
           for (var ci = 0; ci < info.clips.length; ci++) {
             if (info.clips[ci].itemName) info.clips[ci].itemName = decodeURIComponent(info.clips[ci].itemName);
             if (info.clips[ci].mediaPath) info.clips[ci].mediaPath = decodeURIComponent(info.clips[ci].mediaPath);
+            if (info.clips[ci].videoPath) info.clips[ci].videoPath = decodeURIComponent(info.clips[ci].videoPath);
+            if (info.clips[ci].videoName) info.clips[ci].videoName = decodeURIComponent(info.clips[ci].videoName);
+            if (info.clips[ci].audioPath) info.clips[ci].audioPath = decodeURIComponent(info.clips[ci].audioPath);
+            if (info.clips[ci].audioName) info.clips[ci].audioName = decodeURIComponent(info.clips[ci].audioName);
           }
         }
       }
@@ -839,7 +847,7 @@
     } catch (e) { callback(e); }
   }
 
-  function uploadAndTranscribe(wavPath, language, maxCharsPerLine, onStage, onDone, clipInPoint) {
+  function uploadAndTranscribe(wavPath, language, maxCharsPerLine, onStage, onDone, clipInPoint, clipInfo) {
     try {
       var req = (typeof require === "function") ? require : (typeof window.cep_node !== "undefined" ? window.cep_node.require : null);
       if (!req) return onDone(null, null, new Error("Node API yok"));
@@ -857,10 +865,20 @@
       fd.append("max_words_per_line", "99");
       fd.append("auto_cut", autoCutChk.checked ? "true" : "false");
       fd.append("silence_threshold", String(parseFloat(silenceThresholdInput.value) || 0.4));
-      if (lastClipInfo) {
-        fd.append("fps", String(lastClipInfo.seqFps || 30.0));
-        fd.append("width", String(lastClipInfo.seqWidth || 1920));
-        fd.append("height", String(lastClipInfo.seqHeight || 1080));
+      
+      var info = clipInfo || lastClipInfo;
+      if (info) {
+        fd.append("fps", String(info.seqFps || (lastClipInfo && lastClipInfo.seqFps) || 30.0));
+        fd.append("width", String(info.seqWidth || (lastClipInfo && lastClipInfo.seqWidth) || 1920));
+        fd.append("height", String(info.seqHeight || (lastClipInfo && lastClipInfo.seqHeight) || 1080));
+        if (info.videoName || info.videoPath) {
+          var vName = info.videoName || (info.videoPath ? info.videoPath.split(/[\\/]/).pop() : "");
+          fd.append("video_file_name", vName);
+          if (info.videoPath) fd.append("video_path", info.videoPath);
+        }
+        if (info.audioPath) {
+          fd.append("audio_path", info.audioPath);
+        }
       }
 
       fcFetch("/api/upload", { method: "POST", body: fd })
@@ -982,43 +1000,107 @@
     });
   }
 
-  function fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName) {
-    var localFileUrl = pathToUrl(localMediaPath);
-    xmlText = xmlText.replace(/<pathurl>.*?<\/pathurl>/g, function () {
-      return '<pathurl>' + escapeXml(localFileUrl) + '</pathurl>';
-    });
-    if (tempWavName) {
-      var tempWavNameEscaped = tempWavName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      var re = new RegExp('<name>' + tempWavNameEscaped + '</name>', 'g');
-      xmlText = xmlText.replace(re, function () {
-        return '<name>' + escapeXml(localFileName) + '</name>';
+  function fixXmlPaths(xmlText, optsOrVideoPath, audioPathOrName, vName, aName, tempWavName) {
+    var vPath = "";
+    var aPath = "";
+    var videoFileName = "";
+    var audioFileName = "";
+    var twName = tempWavName || "";
+
+    if (typeof optsOrVideoPath === "object" && optsOrVideoPath !== null) {
+      vPath = optsOrVideoPath.videoPath || optsOrVideoPath.mediaPath || "";
+      aPath = optsOrVideoPath.audioPath || optsOrVideoPath.mediaPath || "";
+      videoFileName = optsOrVideoPath.videoName || (vPath ? vPath.split(/[\\/]/).pop() : "");
+      audioFileName = optsOrVideoPath.audioName || (aPath ? aPath.split(/[\\/]/).pop() : "");
+      twName = optsOrVideoPath.tempWavName || "";
+    } else {
+      vPath = optsOrVideoPath || "";
+      if (audioPathOrName && (audioPathOrName.indexOf("/") !== -1 || audioPathOrName.indexOf("\\") !== -1)) {
+        aPath = audioPathOrName;
+        videoFileName = vName || (vPath ? vPath.split(/[\\/]/).pop() : "");
+        audioFileName = aName || (aPath ? aPath.split(/[\\/]/).pop() : "");
+      } else {
+        aPath = vPath;
+        videoFileName = audioPathOrName || (vPath ? vPath.split(/[\\/]/).pop() : "");
+        audioFileName = videoFileName;
+        twName = vName || "";
+      }
+    }
+
+    if (!vPath && !aPath) return xmlText;
+    var vUrl = pathToUrl(vPath || aPath);
+    var aUrl = pathToUrl(aPath || vPath);
+    var vFinalName = videoFileName || (vPath ? vPath.split(/[\\/]/).pop() : "");
+    var aFinalName = audioFileName || (aPath ? aPath.split(/[\\/]/).pop() : "");
+
+    var hasFile2 = xmlText.indexOf('id="file-2"') !== -1;
+
+    if (hasFile2) {
+      // file-1 = video
+      xmlText = xmlText.replace(/(<file id="file-1">[\s\S]*?<\/file>)/, function (m) {
+        var res = m.replace(/<pathurl>[\s\S]*?<\/pathurl>/, function () { return '<pathurl>' + escapeXml(vUrl) + '</pathurl>'; });
+        res = res.replace(/<name>[\s\S]*?<\/name>/, function () { return '<name>' + escapeXml(vFinalName) + '</name>'; });
+        return res;
       });
+      // file-2 = audio
+      xmlText = xmlText.replace(/(<file id="file-2">[\s\S]*?<\/file>)/, function (m) {
+        var res = m.replace(/<pathurl>[\s\S]*?<\/pathurl>/, function () { return '<pathurl>' + escapeXml(aUrl) + '</pathurl>'; });
+        res = res.replace(/<name>[\s\S]*?<\/name>/, function () { return '<name>' + escapeXml(aFinalName) + '</name>'; });
+        return res;
+      });
+    } else {
+      // Tek dosya (hem video hem ses aynı dosya veya tek medya)
+      var targetUrl = vUrl || aUrl;
+      var targetName = vFinalName || aFinalName;
+      xmlText = xmlText.replace(/<pathurl>[\s\S]*?<\/pathurl>/g, function () {
+        return '<pathurl>' + escapeXml(targetUrl) + '</pathurl>';
+      });
+      if (twName) {
+        var tempWavNameEscaped = twName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        var re = new RegExp('<name>' + tempWavNameEscaped + '</name>', 'g');
+        xmlText = xmlText.replace(re, function () {
+          return '<name>' + escapeXml(targetName) + '</name>';
+        });
+      }
     }
     return xmlText;
   }
 
-  function importAndPlaceXml(job) {
+  function importAndPlaceXml(job, clipInfo) {
     if (!job || !job.xml_url) return;
-    var baseName = lastClipInfo.itemName
-      ? lastClipInfo.itemName.replace(/\.[^.]+$/, "")
-      : "subtitle";
+    var info = clipInfo || lastClipInfo || {};
+    var baseName = info.itemName
+      ? info.itemName.replace(/\.[^.]+$/, "")
+      : (info.videoName ? info.videoName.replace(/\.[^.]+$/, "") : "subtitle");
       
     fcFetch(job.xml_url)
       .then(function (rx) { return rx.text(); })
       .then(function (xmlText) {
-        var localMediaPath = lastClipInfo.mediaPath;
-        var localFileName = lastClipInfo.itemName || localMediaPath.split(/[\\/]/).pop();
+        var localVideoPath = info.videoPath || info.mediaPath;
+        var localAudioPath = info.audioPath || info.mediaPath;
+        var localVideoName = info.videoName || (localVideoPath ? localVideoPath.split(/[\\/]/).pop() : "");
+        var localAudioName = info.audioName || (localAudioPath ? localAudioPath.split(/[\\/]/).pop() : "");
         
-        // Sunucu gecici ses dosya ismi: job.id + "_" + job.filename
-        var tempWavName = job.id + "_" + job.filename;
+        // Sunucu gecici ses dosya ismi: job.id + "_" + (job.filename || "")
+        var tempWavName = job.id + "_" + (job.filename || "");
 
-        xmlText = fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName);
+        xmlText = fixXmlPaths(xmlText, {
+          videoPath: localVideoPath,
+          audioPath: localAudioPath,
+          videoName: localVideoName,
+          audioName: localAudioName,
+          tempWavName: tempWavName
+        });
 
         var localXml = saveXmlLocal(xmlText, baseName);
         if (localXml) {
           evalJSX('importXml("' + encodeURIComponent(localXml) + '")')
             .then(function (rXML) {
               console.log("[CEP] importXml result:", rXML);
+              showToast("✓ Auto-Cut sekansı açıldı!");
+            })
+            .catch(function (eXml) {
+              console.error("[CEP] XML import error:", eXml);
             });
         }
       })
@@ -1050,10 +1132,19 @@
           if (lastClipInfo.mediaPath) lastClipInfo.mediaPath = decodeURIComponent(lastClipInfo.mediaPath);
           if (lastClipInfo.itemName) lastClipInfo.itemName = decodeURIComponent(lastClipInfo.itemName);
           if (lastClipInfo.seqName) lastClipInfo.seqName = decodeURIComponent(lastClipInfo.seqName);
+          if (lastClipInfo.videoPath) lastClipInfo.videoPath = decodeURIComponent(lastClipInfo.videoPath);
+          if (lastClipInfo.videoName) lastClipInfo.videoName = decodeURIComponent(lastClipInfo.videoName);
+          if (lastClipInfo.audioPath) lastClipInfo.audioPath = decodeURIComponent(lastClipInfo.audioPath);
+          if (lastClipInfo.audioName) lastClipInfo.audioName = decodeURIComponent(lastClipInfo.audioName);
           if (lastClipInfo.clips && lastClipInfo.clips.length) {
             for (var ci = 0; ci < lastClipInfo.clips.length; ci++) {
-              if (lastClipInfo.clips[ci].itemName) lastClipInfo.clips[ci].itemName = decodeURIComponent(lastClipInfo.clips[ci].itemName);
-              if (lastClipInfo.clips[ci].mediaPath) lastClipInfo.clips[ci].mediaPath = decodeURIComponent(lastClipInfo.clips[ci].mediaPath);
+              var cci = lastClipInfo.clips[ci];
+              if (cci.itemName) cci.itemName = decodeURIComponent(cci.itemName);
+              if (cci.mediaPath) cci.mediaPath = decodeURIComponent(cci.mediaPath);
+              if (cci.videoPath) cci.videoPath = decodeURIComponent(cci.videoPath);
+              if (cci.videoName) cci.videoName = decodeURIComponent(cci.videoName);
+              if (cci.audioPath) cci.audioPath = decodeURIComponent(cci.audioPath);
+              if (cci.audioName) cci.audioName = decodeURIComponent(cci.audioName);
             }
           }
         }
@@ -1137,7 +1228,11 @@
           }
 
           if (isRemoteMode()) {
-            extractWav(curClip.mediaPath, curClip.inPoint, curClip.outPoint, function (errW, wavPath) {
+            var bMedia = curClip.audioPath || curClip.mediaPath;
+            var bIn = (curClip.hasAudio && curClip.audioIn !== undefined) ? curClip.audioIn : (curClip.inPoint || 0);
+            var bOut = (curClip.hasAudio && curClip.audioOut !== undefined) ? curClip.audioOut : (curClip.outPoint || 0);
+
+            extractWav(bMedia, bIn, bOut, function (errW, wavPath) {
               if (errW) {
                 handleBatchError("FFmpeg: " + (errW.message || errW));
                 return;
@@ -1160,17 +1255,19 @@
                   placeOnTimeline({ srt_path_abs: localSrt }, "explicit", curClip.startTime);
                 }
                 if (autoCutChk.checked && finalJob) {
-                  importAndPlaceXml(finalJob);
+                  importAndPlaceXml(finalJob, curClip);
                 }
                 processBatchIndex(idx + 1);
-              }, curClip.inPoint);
+              }, bIn, curClip);
             });
           } else {
             // Local Mode
             var batchPayload = {
-              media_path: curClip.mediaPath,
-              in_point: curClip.inPoint || 0,
-              out_point: curClip.outPoint || 0,
+              media_path: curClip.audioPath || curClip.mediaPath,
+              video_path: curClip.videoPath || null,
+              audio_path: curClip.audioPath || null,
+              in_point: (curClip.hasAudio && curClip.audioIn !== undefined) ? curClip.audioIn : (curClip.inPoint || 0),
+              out_point: (curClip.hasAudio && curClip.audioOut !== undefined) ? curClip.audioOut : (curClip.outPoint || 0),
               sequence_offset: curClip.startTime || 0,
               language: lang,
               max_words_per_line: 99,
@@ -1202,7 +1299,7 @@
                   placeOnTimeline(finalJob, "explicit", curClip.startTime);
                 }
                 if (autoCutChk.checked && finalJob) {
-                  importAndPlaceXml(finalJob);
+                  importAndPlaceXml(finalJob, curClip);
                 }
                 processBatchIndex(idx + 1);
               });
@@ -1217,13 +1314,17 @@
       }
 
       // ===== TEK KLİP AKIŞI (ORİJİNAL AKIŞ KORUNUR) =====
-      showJob(lastClipInfo.mediaPath);
+      showJob(lastClipInfo.videoPath || lastClipInfo.mediaPath);
 
       // ===== REMOTE MODE: WAV ekstrakt + upload + poll + SRT indir =====
       if (isRemoteMode()) {
         console.log("[CEP] REMOTE MODE: " + API);
         jobStage.textContent = "Ses cikariliyor (FFmpeg)…";
-        extractWav(lastClipInfo.mediaPath, lastClipInfo.inPoint, lastClipInfo.outPoint, function (errW, wavPath) {
+        var sAudio = lastClipInfo.audioPath || lastClipInfo.mediaPath;
+        var sIn = (lastClipInfo.hasAudio && lastClipInfo.audioIn !== undefined) ? lastClipInfo.audioIn : (lastClipInfo.inPoint || 0);
+        var sOut = (lastClipInfo.hasAudio && lastClipInfo.audioOut !== undefined) ? lastClipInfo.audioOut : (lastClipInfo.outPoint || 0);
+
+        extractWav(sAudio, sIn, sOut, function (errW, wavPath) {
           if (errW) {
             var isMac = typeof process !== "undefined" && process.platform === "darwin";
             var installHelp = isMac 
@@ -1262,18 +1363,20 @@
             if (autoPlaceChk.checked) placeOnTimeline({ srt_path_abs: localSrt });
 
             // XML'i indir ve yerleştir (Remote Mode)
-            if (autoCutChk.checked) importAndPlaceXml(finalJob);
+            if (autoCutChk.checked) importAndPlaceXml(finalJob, lastClipInfo);
             generateBtn.disabled = false;
-          }, lastClipInfo.inPoint);
+          }, sIn, lastClipInfo);
         });
         return;
       }
 
       // ===== LOCAL MODE: eski /api/clip yolu =====
       var payload = {
-        media_path: lastClipInfo.mediaPath,
-        in_point: lastClipInfo.inPoint || 0,
-        out_point: lastClipInfo.outPoint || 0,
+        media_path: lastClipInfo.audioPath || lastClipInfo.mediaPath,
+        video_path: lastClipInfo.videoPath || null,
+        audio_path: lastClipInfo.audioPath || null,
+        in_point: (lastClipInfo.hasAudio && lastClipInfo.audioIn !== undefined) ? lastClipInfo.audioIn : (lastClipInfo.inPoint || 0),
+        out_point: (lastClipInfo.hasAudio && lastClipInfo.audioOut !== undefined) ? lastClipInfo.audioOut : (lastClipInfo.outPoint || 0),
         sequence_offset: lastClipInfo.startTime || 0,
         language: lang,
         max_words_per_line: 99,
@@ -1298,7 +1401,7 @@
         return r.json();
       }).then(function (job) {
         console.log("[CEP] job started:", job);
-        showJob(payload.media_path);
+        showJob(payload.video_path || payload.media_path);
         pollJob(job.id);
       }).catch(function (e) {
         console.error("[CEP] fetch error:", e);
@@ -1346,7 +1449,7 @@
           if (j.status === "done") {
             done = true;
             if (autoPlaceChk.checked) placeOnTimeline(j);
-            if (autoCutChk.checked) importAndPlaceXml(j);
+            if (autoCutChk.checked) importAndPlaceXml(j, lastClipInfo);
             generateBtn.disabled = false;
           } else if (j.status === "error") {
             done = true; failJob(j.error || "Bilinmeyen hata"); generateBtn.disabled = false;

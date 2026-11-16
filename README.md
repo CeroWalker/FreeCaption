@@ -66,7 +66,7 @@ Türk video editörlerin yıllardır beklediği şey: **Premiere Pro'da Türkçe
 ### Adım 1 — Bilgileri Yükle
 
 ```bash
-git clone https://github.com/ScamEmre/FreeCaption.git
+git clone https://github.com/CeroWalker/FreeCaption.git
 cd FreeCaption
 ```
 

@@ -86,6 +86,8 @@ class Job:
         self.fps: float = 30.0
         self.width: int = 1920
         self.height: int = 1080
+        self.video_path: Optional[str] = None
+        self.audio_path: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -108,11 +110,15 @@ class Job:
             "clip_end": self.clip_end,
             "auto_cut": self.auto_cut,
             "silence_threshold": self.silence_threshold,
+            "video_path": self.video_path,
+            "audio_path": self.audio_path,
         }
 
 
 class ClipRequest(BaseModel):
     media_path: str
+    video_path: Optional[str] = None
+    audio_path: Optional[str] = None
     in_point: float = 0.0
     out_point: float = 0.0
     sequence_offset: float = 0.0
@@ -259,8 +265,13 @@ def run_job(job: Job, media_path: Path, transcriber):
             total_dur = max(float(job.duration or 0.0), max_seg_end + 1.0)
             merged_segs = merge_segments(cut_segs, padding=0.05, max_duration=total_dur)
             
+            v_path = Path(job.video_path) if job.video_path else None
+            a_path = Path(job.audio_path) if job.audio_path else None
+
             xml_content = generate_fcp_xml(
                 media_path=media_path,
+                video_path=v_path,
+                audio_path=a_path,
                 segments=merged_segs,
                 fps=job.fps,
                 width=job.width,
@@ -409,6 +420,9 @@ async def upload(
     fps: float = Form(30.0),
     width: int = Form(1920),
     height: int = Form(1080),
+    video_file_name: Optional[str] = Form(None),
+    video_path: Optional[str] = Form(None),
+    audio_path: Optional[str] = Form(None),
 ):
     job_id = uuid.uuid4().hex[:12]
     safe_name = Path(file.filename or f"upload_{job_id}").name
@@ -432,6 +446,12 @@ async def upload(
     job.fps = fps
     job.width = width
     job.height = height
+    if video_path:
+        job.video_path = video_path
+    elif video_file_name:
+        job.video_path = video_file_name
+    if audio_path:
+        job.audio_path = audio_path
     if max_chars_per_line and max_chars_per_line > 0:
         job.max_chars_per_line = int(max_chars_per_line)
     if max_words_per_line and max_words_per_line > 0:
@@ -451,7 +471,12 @@ async def submit_clip(req: ClipRequest):
     media_path = Path(req.media_path)
     print(f"           exists={media_path.exists()} is_file={media_path.is_file() if media_path.exists() else 'N/A'}")
     if not media_path.exists():
-        raise HTTPException(404, f"Medya bulunamadı: {req.media_path}")
+        if req.audio_path and Path(req.audio_path).exists():
+            media_path = Path(req.audio_path)
+        elif req.video_path and Path(req.video_path).exists():
+            media_path = Path(req.video_path)
+        else:
+            raise HTTPException(404, f"Medya bulunamadı: {req.media_path}")
     if not media_path.is_file():
         raise HTTPException(400, "Dosya değil")
 
@@ -463,6 +488,10 @@ async def submit_clip(req: ClipRequest):
     job.fps = req.fps
     job.width = req.width
     job.height = req.height
+    if req.video_path:
+        job.video_path = req.video_path
+    if req.audio_path:
+        job.audio_path = req.audio_path
     if req.out_point > req.in_point > 0 or (req.out_point > 0 and req.in_point >= 0):
         job.clip_start = float(req.in_point)
         job.clip_end = float(req.out_point)
