@@ -3,6 +3,7 @@ Dolgu kelimeleri ve sessizlikleri temizleyip Premiere Pro uyumlu FCP XML üreten
 """
 from pathlib import Path
 from typing import List, Dict, Tuple
+import xml.sax.saxutils
 
 # Türkçe ve İngilizce yaygın dolgu kelimeleri
 FILLER_WORDS = {
@@ -58,7 +59,7 @@ def generate_cut_segments(
 def merge_segments(
     segments: List[Tuple[float, float]], 
     padding: float, 
-    max_duration: float
+    max_duration: float = 0.0
 ) -> List[Tuple[float, float]]:
     """
     Kelimelerin yarım kalmaması için padding ekler ve çakışan aralıkları birleştirir.
@@ -66,11 +67,16 @@ def merge_segments(
     if not segments:
         return []
 
+    # clip_start offset veya dosya süresi tutarsızlığında kesilme olmaması için
+    max_seg_end = max([e for _, e in segments], default=0.0)
+    effective_max_duration = max(float(max_duration or 0.0), max_seg_end + padding)
+
     padded = []
     for s, e in segments:
         start_padded = max(0.0, s - padding)
-        end_padded = min(max_duration, e + padding)
-        padded.append((start_padded, end_padded))
+        end_padded = min(effective_max_duration, e + padding)
+        if end_padded > start_padded:
+            padded.append((start_padded, end_padded))
 
     merged: List[Tuple[float, float]] = []
     for cur in padded:
@@ -88,7 +94,13 @@ def merge_segments(
 def get_xml_rate(fps: float) -> Tuple[int, bool]:
     """
     Premiere uyumlu FCP XML için timebase ve NTSC ayarlarını döndürür.
+    Sıfır veya negatif fps değerlerini engeller (en az 1.0 fps).
     """
+    try:
+        fps = max(1.0, float(fps or 30.0))
+    except (ValueError, TypeError):
+        fps = 30.0
+
     fps_round = round(fps, 3)
     if fps_round == 23.976:
         return 24, True
@@ -97,7 +109,7 @@ def get_xml_rate(fps: float) -> Tuple[int, bool]:
     elif fps_round == 59.94:
         return 60, True
     else:
-        return int(round(fps)), False
+        return max(1, int(round(fps))), False
 
 
 def path_to_xml_url(path: Path) -> str:
@@ -118,13 +130,24 @@ def generate_fcp_xml(
     """
     Premiere Pro tarafından okunabilen FCP XML şablonunu üretir.
     """
+    try:
+        fps = max(1.0, float(fps or 30.0))
+    except (ValueError, TypeError):
+        fps = 30.0
+
     timebase, is_ntsc = get_xml_rate(fps)
     ntsc_str = "TRUE" if is_ntsc else "FALSE"
     
+    max_segment_end = max([end for _, end in segments], default=0.0)
+    try:
+        total_media_duration = max(float(total_media_duration or 0.0), max_segment_end)
+    except (ValueError, TypeError):
+        total_media_duration = max_segment_end
+
     total_media_frames = int(round(total_media_duration * fps))
-    media_name = media_path.name
-    sequence_name = f"fc_cut_{media_path.stem}"
-    media_url = path_to_xml_url(media_path)
+    media_name = xml.sax.saxutils.escape(media_path.name)
+    sequence_name = xml.sax.saxutils.escape(f"fc_cut_{media_path.stem}")
+    media_url = xml.sax.saxutils.escape(path_to_xml_url(media_path))
     
     video_clips = []
     audio_clips_c1 = []

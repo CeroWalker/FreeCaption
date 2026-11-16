@@ -255,7 +255,8 @@ def run_job(job: Job, media_path: Path, transcriber):
                 clip_start=clip_start_offset
             )
             
-            total_dur = job.duration if job.duration is not None else 99999.0
+            max_seg_end = max([end for _, end in cut_segs], default=0.0)
+            total_dur = max(float(job.duration or 0.0), max_seg_end + 1.0)
             merged_segs = merge_segments(cut_segs, padding=0.05, max_duration=total_dur)
             
             xml_content = generate_fcp_xml(
@@ -399,6 +400,7 @@ async def shutdown():
 @app.post("/api/upload")
 async def upload(
     file: UploadFile = File(...),
+    in_point: float = Form(0.0),
     language: Optional[str] = Form(None),
     max_chars_per_line: Optional[int] = Form(None),
     max_words_per_line: Optional[int] = Form(None),
@@ -423,6 +425,8 @@ async def upload(
     language = "tr"
 
     job = Job(job_id=job_id, filename=safe_name, language=language)
+    if in_point and in_point > 0:
+        job.clip_start = float(in_point)
     job.auto_cut = auto_cut
     job.silence_threshold = silence_threshold
     job.fps = fps

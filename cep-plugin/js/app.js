@@ -363,7 +363,7 @@
   }, 800);
 
   // ===== Eklenti Otomatik Guncelleme (GitHub'tan) =====
-  var GITHUB_REPO = "ScamEmre/FreeCaption";
+  var GITHUB_REPO = "CeroWalker/FreeCaption";
   var GITHUB_BRANCH = "main";
 
   function getInstalledCommit() {
@@ -688,14 +688,22 @@
         if (info.itemName) info.itemName = decodeURIComponent(info.itemName);
         if (info.mediaPath) info.mediaPath = decodeURIComponent(info.mediaPath);
         if (info.seqName) info.seqName = decodeURIComponent(info.seqName);
+        if (info.clips && info.clips.length) {
+          for (var ci = 0; ci < info.clips.length; ci++) {
+            if (info.clips[ci].itemName) info.clips[ci].itemName = decodeURIComponent(info.clips[ci].itemName);
+            if (info.clips[ci].mediaPath) info.clips[ci].mediaPath = decodeURIComponent(info.clips[ci].mediaPath);
+          }
+        }
       }
       // V7 probe: ilk gelen probe raporunu console'a tam yaz
       if (info && info.probe && !_probeLogged) {
         console.log("[CEP] V7 PROBE FULL:", info);
         _probeLogged = true;
       }
+      var btnSpan = generateBtn ? generateBtn.querySelector("span") : null;
       if (!info || !info.ok) {
         seqNameEl.textContent = (info && info.t4_seqName) || (info && info.seqName) || "—";
+        if (btnSpan) btnSpan.textContent = "Altyazı Üret";
         // V7: en son test (tX_ERR veya tX_xxx) bilgisini panele yaz
         var msg = "—";
         if (info) {
@@ -716,9 +724,16 @@
         return;
       }
       seqNameEl.textContent = info.seqName || info.t4_seqName || "Aktif";
-      var dur = info.duration ? (info.duration.toFixed(1) + "s") : "";
-      var name = info.itemName ? (" · " + info.itemName) : "";
-      selInfoEl.textContent = "1 klip · " + dur + name;
+      var clipCount = (info.count !== undefined) ? info.count : (info.clips ? info.clips.length : 1);
+      if (clipCount > 1) {
+        if (btnSpan) btnSpan.textContent = "Altyazı Üret (" + clipCount + " Klip)";
+        selInfoEl.textContent = clipCount + " klip seçildi";
+      } else {
+        if (btnSpan) btnSpan.textContent = "Altyazı Üret";
+        var dur = info.duration ? (info.duration.toFixed(1) + "s") : "";
+        var name = info.itemName ? (" · " + info.itemName) : "";
+        selInfoEl.textContent = "1 klip · " + dur + name;
+      }
       selInfoEl.title = info.mediaPath || "";
       lastClipInfo = info;
       // Tab 2'ye SEQUENCE FPS + DIMENSION + clip start paylas (PNG export icin kritik)
@@ -731,6 +746,8 @@
     }).catch(function (e) {
       seqNameEl.textContent = "—";
       selInfoEl.textContent = "JSX err: " + (e.message || e);
+      var bSpanErr = generateBtn ? generateBtn.querySelector("span") : null;
+      if (bSpanErr) bSpanErr.textContent = "Altyazı Üret";
       console.error("[CEP] getSelectedClipInfo:", e);
     });
   }
@@ -822,7 +839,7 @@
     } catch (e) { callback(e); }
   }
 
-  function uploadAndTranscribe(wavPath, language, maxCharsPerLine, onStage, onDone) {
+  function uploadAndTranscribe(wavPath, language, maxCharsPerLine, onStage, onDone, clipInPoint) {
     try {
       var req = (typeof require === "function") ? require : (typeof window.cep_node !== "undefined" ? window.cep_node.require : null);
       if (!req) return onDone(null, null, new Error("Node API yok"));
@@ -832,6 +849,7 @@
       var blob = new Blob([wavBuf], { type: "audio/wav" });
       var fd = new FormData();
       fd.append("file", blob, "clip.wav");
+      fd.append("in_point", String(clipInPoint || 0));
       if (language) fd.append("language", language);
       if (maxCharsPerLine && maxCharsPerLine > 0) {
         fd.append("max_chars_per_line", String(maxCharsPerLine));
@@ -966,11 +984,15 @@
 
   function fixXmlPaths(xmlText, localMediaPath, localFileName, tempWavName) {
     var localFileUrl = pathToUrl(localMediaPath);
-    xmlText = xmlText.replace(/<pathurl>.*?<\/pathurl>/g, '<pathurl>' + escapeXml(localFileUrl) + '</pathurl>');
+    xmlText = xmlText.replace(/<pathurl>.*?<\/pathurl>/g, function () {
+      return '<pathurl>' + escapeXml(localFileUrl) + '</pathurl>';
+    });
     if (tempWavName) {
       var tempWavNameEscaped = tempWavName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
       var re = new RegExp('<name>' + tempWavNameEscaped + '</name>', 'g');
-      xmlText = xmlText.replace(re, '<name>' + escapeXml(localFileName) + '</name>');
+      xmlText = xmlText.replace(re, function () {
+        return '<name>' + escapeXml(localFileName) + '</name>';
+      });
     }
     return xmlText;
   }
@@ -1028,6 +1050,12 @@
           if (lastClipInfo.mediaPath) lastClipInfo.mediaPath = decodeURIComponent(lastClipInfo.mediaPath);
           if (lastClipInfo.itemName) lastClipInfo.itemName = decodeURIComponent(lastClipInfo.itemName);
           if (lastClipInfo.seqName) lastClipInfo.seqName = decodeURIComponent(lastClipInfo.seqName);
+          if (lastClipInfo.clips && lastClipInfo.clips.length) {
+            for (var ci = 0; ci < lastClipInfo.clips.length; ci++) {
+              if (lastClipInfo.clips[ci].itemName) lastClipInfo.clips[ci].itemName = decodeURIComponent(lastClipInfo.clips[ci].itemName);
+              if (lastClipInfo.clips[ci].mediaPath) lastClipInfo.clips[ci].mediaPath = decodeURIComponent(lastClipInfo.clips[ci].mediaPath);
+            }
+          }
         }
         return checkHealth();
       })
@@ -1057,6 +1085,138 @@
       }
 
       var lang = languageSel.value === "auto" ? null : languageSel.value;
+
+      // ===== ÇOKLU KLİP (BATCH PROCESSING) KONTROLÜ =====
+      var isBatch = lastClipInfo.clips && lastClipInfo.clips.length > 1;
+
+      if (isBatch) {
+        var batchClips = lastClipInfo.clips;
+        var totalClips = batchClips.length;
+        var batchErrors = [];
+        console.log("[CEP] BATCH PROCESSING START: " + totalClips + " clips");
+        showJob(totalClips + " klip");
+
+        function processBatchIndex(idx) {
+          if (idx >= totalClips) {
+            generateBtn.disabled = false;
+            jobBox.classList.remove("hidden");
+            if (bar && bar.parentElement) bar.parentElement.classList.remove("indet");
+            var errCount = batchErrors.length;
+            var successCount = totalClips - errCount;
+
+            if (errCount === 0) {
+              updateJobUI({ status: "done", stage: "Tüm klipler tamamlandı (" + totalClips + "/" + totalClips + ")", progress: 1.0 });
+              jobStatus.textContent = "Tamamlandı";
+              jobStatus.className = "badge done";
+              showToast("✓ " + totalClips + " klip altyazısı başarıyla oluşturuldu");
+            } else {
+              var summary = totalClips + " klipten " + successCount + " tanesi tamamlandı, " + errCount + " tanesi hata aldı.";
+              jobStatus.textContent = successCount === 0 ? "Hata" : "Kısmen Tamamlandı";
+              jobStatus.className = successCount === 0 ? "badge error" : "badge warn";
+              jobStage.textContent = summary;
+              var errorDetails = summary + "\n\n" + batchErrors.map(function (e) {
+                return "• " + e.clip + ": " + e.error;
+              }).join("\n");
+              jobError.textContent = errorDetails;
+              jobError.classList.remove("hidden");
+              showToast((successCount === 0 ? "✗ " : "⚠ ") + summary);
+            }
+            return;
+          }
+
+          var curClip = batchClips[idx];
+          var clipName = curClip.itemName || ("Klip " + (idx + 1));
+          var clipPrefix = "İşleniyor (Klip " + (idx + 1) + "/" + totalClips + ": " + clipName + ")";
+          jobStage.textContent = clipPrefix + "…";
+          jobName.textContent = clipName;
+
+          function handleBatchError(errText) {
+            console.error("[CEP] " + clipPrefix + " HATA:", errText);
+            batchErrors.push({ clip: clipName, error: errText });
+            processBatchIndex(idx + 1);
+          }
+
+          if (isRemoteMode()) {
+            extractWav(curClip.mediaPath, curClip.inPoint, curClip.outPoint, function (errW, wavPath) {
+              if (errW) {
+                handleBatchError("FFmpeg: " + (errW.message || errW));
+                return;
+              }
+              uploadAndTranscribe(wavPath, lang, currentMaxChars, function (stage, j) {
+                jobStage.textContent = clipPrefix + " · " + stage;
+                if (j) updateJobUI(j);
+              }, function (srtText, finalJob, errU) {
+                if (errU || !srtText) {
+                  handleBatchError("Sunucu: " + (errU ? (errU.message || errU) : "SRT boş döndü"));
+                  return;
+                }
+                var baseName = curClip.itemName ? curClip.itemName.replace(/\.[^.]+$/, "") : ("clip_" + (idx + 1));
+                var localSrt = saveSrtLocal(srtText, baseName);
+                if (!localSrt) {
+                  handleBatchError("SRT lokale kaydedilemedi");
+                  return;
+                }
+                if (autoPlaceChk.checked) {
+                  placeOnTimeline({ srt_path_abs: localSrt }, "explicit", curClip.startTime);
+                }
+                if (autoCutChk.checked && finalJob) {
+                  importAndPlaceXml(finalJob);
+                }
+                processBatchIndex(idx + 1);
+              }, curClip.inPoint);
+            });
+          } else {
+            // Local Mode
+            var batchPayload = {
+              media_path: curClip.mediaPath,
+              in_point: curClip.inPoint || 0,
+              out_point: curClip.outPoint || 0,
+              sequence_offset: curClip.startTime || 0,
+              language: lang,
+              max_words_per_line: 99,
+              max_chars_per_line: currentMaxChars,
+              output_dir: outDir,
+              auto_cut: autoCutChk.checked,
+              silence_threshold: parseFloat(silenceThresholdInput.value) || 0.4,
+              fps: lastClipInfo.seqFps || 30.0,
+              width: lastClipInfo.seqWidth || 1920,
+              height: lastClipInfo.seqHeight || 1080
+            };
+            fcFetch("/api/clip", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(batchPayload)
+            }).then(function (r) {
+              if (!r.ok) return r.text().then(function (t) { throw new Error("Sunucu " + r.status + ": " + t); });
+              return r.json();
+            }).then(function (job) {
+              pollJobWithCb(job.id, function (stage, j) {
+                jobStage.textContent = clipPrefix + " · " + stage;
+                if (j) updateJobUI(j);
+              }, function (errP, finalJob) {
+                if (errP) {
+                  handleBatchError("İşlem: " + (errP.message || errP));
+                  return;
+                }
+                if (autoPlaceChk.checked && finalJob) {
+                  placeOnTimeline(finalJob, "explicit", curClip.startTime);
+                }
+                if (autoCutChk.checked && finalJob) {
+                  importAndPlaceXml(finalJob);
+                }
+                processBatchIndex(idx + 1);
+              });
+            }).catch(function (e) {
+              handleBatchError("İstek hatası: " + (e.message || String(e)));
+            });
+          }
+        }
+
+        processBatchIndex(0);
+        return;
+      }
+
+      // ===== TEK KLİP AKIŞI (ORİJİNAL AKIŞ KORUNUR) =====
       showJob(lastClipInfo.mediaPath);
 
       // ===== REMOTE MODE: WAV ekstrakt + upload + poll + SRT indir =====
@@ -1104,7 +1264,7 @@
             // XML'i indir ve yerleştir (Remote Mode)
             if (autoCutChk.checked) importAndPlaceXml(finalJob);
             generateBtn.disabled = false;
-          });
+          }, lastClipInfo.inPoint);
         });
         return;
       }
@@ -1211,20 +1371,50 @@
     bar.style.width = pct + "%";
   }
 
-  function placeOnTimeline(job) {
-    var srtPath = job.srt_path_abs;
-    if (!srtPath) { failJob("SRT yolu yok"); return; }
+  function pollJobWithCb(jobId, onStage, onDone) {
+    var done = false;
+    function tick() {
+      if (done) return;
+      fcFetch("/api/job/" + jobId, { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (onStage) onStage(j.stage || "isleniyor", j);
+          else updateJobUI(j);
+          if (j.status === "done") {
+            done = true;
+            onDone(null, j);
+          } else if (j.status === "error") {
+            done = true;
+            onDone(new Error(j.error || "Bilinmeyen hata"), j);
+          } else {
+            setTimeout(tick, 600);
+          }
+        }).catch(function (e) {
+          done = true;
+          onDone(e, null);
+        });
+    }
+    tick();
+  }
+
+  function placeOnTimeline(job, placementMode, explicitSeconds) {
+    var srtPath = (typeof job === "string") ? job : (job ? job.srt_path_abs : null);
+    if (!srtPath) { failJob("SRT yolu yok"); return Promise.resolve(null); }
     // Tab 2'ye son uretilen SRT yolunu + clibin sekanstaki konumunu bildir
     try {
       window.FC_LAST_SRT_PATH = srtPath;
       // Clibin sekanstaki baslangic saati (PNG sequence import konumu)
-      var seqStart = (lastClipInfo && lastClipInfo.startTime) ? lastClipInfo.startTime : 0;
+      var seqStart = (typeof explicitSeconds === "number")
+        ? explicitSeconds
+        : ((lastClipInfo && lastClipInfo.startTime) ? lastClipInfo.startTime : 0);
       window.FC_LAST_CLIP_SEQ_START = seqStart;
     } catch (e) {}
-    // YENI imza: importAndPlaceSubtitle(srtPath, placementMode, explicitSeconds)
-    var jsxCall = 'importAndPlaceSubtitle("' + encodeURIComponent(srtPath) + '", "' + currentPlacement + '", 0)';
 
-    evalJSX(jsxCall).then(function (r) {
+    var mode = placementMode || currentPlacement;
+    var expSec = (typeof explicitSeconds === "number") ? explicitSeconds : 0;
+    var jsxCall = 'importAndPlaceSubtitle("' + encodeURIComponent(srtPath) + '", "' + mode + '", ' + expSec + ')';
+
+    return evalJSX(jsxCall).then(function (r) {
       console.log("[CEP] importAndPlace result:", r);
       if (r && r.ok) {
         jobStage.textContent = "✓ Yerleştirildi · " + (r.method || "");
@@ -1244,9 +1434,11 @@
         jobError.classList.remove("hidden");
         if (r && r.log) console.log("[CEP] JSX log:\n" + r.log.join("\n"));
       }
+      return r;
     }).catch(function (e) {
       jobError.textContent = "ExtendScript hata: " + e.message;
       jobError.classList.remove("hidden");
+      return null;
     });
   }
 

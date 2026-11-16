@@ -95,47 +95,77 @@ function getSelectedClipInfo() {
         if (selLen === 0) {
             return '{"ok":false,"stage":"6_empty","error":"secim yok",' +
                 '"seqName":"' + seqName.replace(/"/g, "") + '","selLen":0,' +
+                '"count":0,"clips":[],' +
                 '"seqFps":' + seqFps + ',"seqWidth":' + seqWidth + ',"seqHeight":' + seqHeight + '}';
         }
 
-        stage = "7_firstItem";
-        var ti = sel[0];
-        if (!ti) return '{"ok":false,"stage":"7_firstItem","error":"sel[0] null"}';
+        stage = "7_clipsLoop";
+        var clips = [];
+        for (var s = 0; s < selLen; s++) {
+            var curTi = sel[s];
+            if (!curTi) continue;
+            var curPi = curTi.projectItem;
+            if (!curPi) continue;
 
-        stage = "8_projectItem";
-        var pi = ti.projectItem;
-        if (!pi) return '{"ok":false,"stage":"8_projectItem","error":"projectItem yok"}';
+            var cName = "";
+            try { cName = curPi.name; } catch (eCn) { cName = "?"; }
+            var cPath = "";
+            try { cPath = curPi.getMediaPath(); } catch (eCp) { cPath = ""; }
 
-        stage = "9_name";
-        var itemName = "";
-        try { itemName = pi.name; } catch (eN2) { itemName = "?"; }
+            // Medya yolu bos olan ogeyi (Adjustment layer, Color matte, Title vb.) kesinlikle ekleme
+            if (!cPath || cPath === "" || cPath === "null") continue;
 
-        stage = "10_mediaPath";
-        var mediaPath = "";
-        try { mediaPath = pi.getMediaPath(); } catch (eM) { mediaPath = ""; }
+            var cIn = 0, cOut = 0, cSt = 0, cEn = 0;
+            try { cIn = curTi.inPoint.seconds; } catch (eCi) {}
+            try { cOut = curTi.outPoint.seconds; } catch (eCo) {}
+            try { cSt = curTi.start.seconds; } catch (eCs) {}
+            try { cEn = curTi.end.seconds; } catch (eCe) {}
 
-        stage = "11_times";
-        var inP = 0, outP = 0, st = 0, en = 0;
-        try { inP = ti.inPoint.seconds; } catch (e1) {}
-        try { outP = ti.outPoint.seconds; } catch (e2) {}
-        try { st = ti.start.seconds; } catch (e3) {}
-        try { en = ti.end.seconds; } catch (e4) {}
+            var cDur = cEn - cSt;
+            if (cDur < 0) cDur = 0;
 
-        var dur = en - st;
-        if (dur < 0) dur = 0;
+            clips.push({
+                itemName: cName,
+                mediaPath: cPath,
+                inPoint: cIn,
+                outPoint: cOut,
+                startTime: cSt,
+                duration: cDur
+            });
+        }
 
-        stage = "12_done";
-        var safeName = encodeURIComponent(itemName);
-        var safePath = encodeURIComponent(mediaPath);
+        if (clips.length === 0) {
+            return '{"ok":false,"stage":"7_emptyClips","error":"gecerli klip bulunamadi",' +
+                '"seqName":"' + seqName.replace(/"/g, "") + '","selLen":' + selLen + ',' +
+                '"count":0,"clips":[],' +
+                '"seqFps":' + seqFps + ',"seqWidth":' + seqWidth + ',"seqHeight":' + seqHeight + '}';
+        }
+
+        var firstClip = clips[0];
+        var safeName = encodeURIComponent(firstClip.itemName);
+        var safePath = encodeURIComponent(firstClip.mediaPath);
         var safeSeq = encodeURIComponent(seqName);
 
+        var clipsJsonArr = [];
+        for (var cIdx = 0; cIdx < clips.length; cIdx++) {
+            var cObj = clips[cIdx];
+            clipsJsonArr.push('{"itemName":"' + encodeURIComponent(cObj.itemName) + '",' +
+                '"mediaPath":"' + encodeURIComponent(cObj.mediaPath) + '",' +
+                '"inPoint":' + cObj.inPoint + ',"outPoint":' + cObj.outPoint + ',' +
+                '"startTime":' + cObj.startTime + ',"duration":' + cObj.duration + '}');
+        }
+        var clipsJsonStr = '[' + clipsJsonArr.join(',') + ']';
+
+        stage = "12_done";
         return '{"ok":true,"stage":"12_done","probe":"v11",' +
             '"seqName":"' + safeSeq + '",' +
             '"selLen":' + selLen + ',' +
+            '"count":' + clips.length + ',' +
+            '"clips":' + clipsJsonStr + ',' +
             '"itemName":"' + safeName + '",' +
             '"mediaPath":"' + safePath + '",' +
-            '"inPoint":' + inP + ',"outPoint":' + outP + ',' +
-            '"startTime":' + st + ',"duration":' + dur + ',' +
+            '"inPoint":' + firstClip.inPoint + ',"outPoint":' + firstClip.outPoint + ',' +
+            '"startTime":' + firstClip.startTime + ',"duration":' + firstClip.duration + ',' +
             '"seqFps":' + seqFps + ',"seqWidth":' + seqWidth + ',"seqHeight":' + seqHeight + '}';
     } catch (e) {
         return '{"ok":false,"stage":"' + stage + '","error":"OUTER","msg":"' +
@@ -154,14 +184,24 @@ function importAndPlaceSubtitle(srtPathEncoded, placementMode, explicitSeconds) 
         var seq = proj.activeSequence;
         if (!seq) return '{"ok":false,"error":"sekans yok"}';
 
-        var timeSeconds = 0;
+        var baseSec = (seq.zeroPoint && typeof seq.zeroPoint.seconds === "number") ? seq.zeroPoint.seconds : 0;
+        var timeSeconds = baseSec;
+
         if (placementMode === "playhead") {
             try {
                 var ph = seq.getPlayerPosition();
-                if (ph && ph.seconds) timeSeconds = ph.seconds;
+                if (ph && typeof ph.seconds === "number") timeSeconds = ph.seconds;
             } catch (eP) {}
         } else if (placementMode === "explicit") {
-            if (typeof explicitSeconds === "number") timeSeconds = explicitSeconds;
+            var expSec = 0;
+            if (typeof explicitSeconds === "number") {
+                expSec = explicitSeconds;
+            } else if (typeof explicitSeconds === "string") {
+                expSec = parseFloat(explicitSeconds) || 0;
+            }
+            timeSeconds = baseSec + expSec;
+        } else {
+            timeSeconds = baseSec;
         }
 
         var rootBin = proj.rootItem;
@@ -188,21 +228,58 @@ function importAndPlaceSubtitle(srtPathEncoded, placementMode, explicitSeconds) 
         var winningMethod = "";
         var errMsg = "";
 
+        // 1. Sayısal saniye ile createCaptionTrack dene
         try {
             if (typeof seq.createCaptionTrack === "function") {
                 seq.createCaptionTrack(imported, timeSeconds);
-                winningMethod = "createCaptionTrack";
+                winningMethod = "createCaptionTrack_sec";
             }
         } catch (e1) {
-            errMsg = errMsg + "ct: " + String(e1) + "; ";
+            errMsg = errMsg + "ct_sec: " + String(e1) + "; ";
+        }
+
+        // 2. Time nesnesi ile createCaptionTrack dene
+        if (winningMethod === "") {
+            try {
+                if (typeof seq.createCaptionTrack === "function") {
+                    var t = new Time();
+                    t.seconds = timeSeconds;
+                    seq.createCaptionTrack(imported, t);
+                    winningMethod = "createCaptionTrack_time";
+                }
+            } catch (e2) {
+                errMsg = errMsg + "ct_time: " + String(e2) + "; ";
+            }
+        }
+
+        // 3. createCaptionTrack başarısız olursa ve mevcut caption track varsa overwriteClip dene
+        if (winningMethod === "") {
+            try {
+                if (seq.captionTracks && seq.captionTracks.numTracks > 0) {
+                    var capTrack = seq.captionTracks[0];
+                    if (capTrack && typeof capTrack.overwriteClip === "function") {
+                        try {
+                            var t2 = new Time();
+                            t2.seconds = timeSeconds;
+                            capTrack.overwriteClip(imported, t2);
+                            winningMethod = "overwriteClip_time";
+                        } catch (eOwTime) {
+                            capTrack.overwriteClip(imported, timeSeconds);
+                            winningMethod = "overwriteClip_sec";
+                        }
+                    }
+                }
+            } catch (e3) {
+                errMsg = errMsg + "ow: " + String(e3) + "; ";
+            }
         }
 
         if (winningMethod === "") {
-            return '{"ok":false,"binOnly":true,"itemName":"' + imported.name.replace(/"/g, "") +
+            return '{"ok":false,"binOnly":true,"itemName":"' + (imported.name ? imported.name.replace(/"/g, "") : "") +
                 '","error":"' + errMsg.replace(/"/g, "") + '"}';
         }
 
-        return '{"ok":true,"itemName":"' + imported.name.replace(/"/g, "") +
+        return '{"ok":true,"itemName":"' + (imported.name ? imported.name.replace(/"/g, "") : "") +
             '","method":"' + winningMethod + '","insertedAt":' + timeSeconds + '}';
     } catch (e) {
         return '{"ok":false,"error":"' + String(e).replace(/"/g, "").replace(/\\/g, "") + '"}';
@@ -373,9 +450,51 @@ function importXml(xmlPathEncoded) {
         var xmlPath = decodeURIComponent(xmlPathEncoded);
         if (!xmlPath) return '{"ok":false,"error":"xmlPath bos"}';
         if (!app || !app.project) return '{"ok":false,"error":"app veya proje yok"}';
+
+        var oldSeqIDs = {};
+        var seqs = app.project.sequences;
+        var numSeqs = seqs ? seqs.numSequences : 0;
+        for (var i = 0; i < numSeqs; i++) {
+            var s = seqs[i];
+            if (s) {
+                var sId = s.sequenceID ? String(s.sequenceID) : ("idx_" + i);
+                oldSeqIDs[sId] = true;
+            }
+        }
+
         var importOk = app.project.importFiles([xmlPath], true, app.project.rootItem, false);
         if (!importOk) return '{"ok":false,"error":"importFiles false"}';
-        return '{"ok":true}';
+
+        var newSeq = null;
+        var seqsAfter = app.project.sequences;
+        var numSeqsAfter = seqsAfter ? seqsAfter.numSequences : 0;
+        for (var j = 0; j < numSeqsAfter; j++) {
+            var sa = seqsAfter[j];
+            if (sa) {
+                var saId = sa.sequenceID ? String(sa.sequenceID) : ("idx_" + j);
+                if (!oldSeqIDs[saId]) {
+                    newSeq = sa;
+                    break;
+                }
+            }
+        }
+
+        if (!newSeq && numSeqsAfter > numSeqs) {
+            newSeq = seqsAfter[numSeqsAfter - 1];
+        }
+
+        if (newSeq) {
+            try {
+                app.project.activeSequence = newSeq;
+            } catch (eAct) {}
+            try {
+                if (typeof app.project.openSequence === "function" && newSeq.sequenceID) {
+                    app.project.openSequence(newSeq.sequenceID);
+                }
+            } catch (eOpen) {}
+        }
+
+        return '{"ok":true,"sequenceOpened":' + (newSeq ? "true" : "false") + '}';
     } catch (e) {
         return '{"ok":false,"error":"' + String(e).replace(/"/g, "") + '"}';
     }
